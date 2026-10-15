@@ -36,4 +36,24 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 404);
             }
         });
+
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $exception, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Autenticação necessária.',
+                    'type' => 'unauthenticated',
+                ], 401);
+            }
+        });
+
+        $exceptions->render(function (\Throwable $exception, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*')) {
+                report($exception);
+
+                return response()->json([
+                    'message' => 'Ocorreu um erro interno.',
+                    'type' => 'internal_error',
+                ], 500);
+            }
+        });
     })->create();

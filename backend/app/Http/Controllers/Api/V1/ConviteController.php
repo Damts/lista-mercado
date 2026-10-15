@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\EntrarConviteRequest;
 use App\Models\Casa;
+use App\Models\Audit;
 use App\Models\Convite;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class ConviteController extends Controller
 
             throw new \RuntimeException('Não foi possível gerar um código de convite.');
         });
+        Audit::record($request->user()->id, 'convite.created', Convite::class, $invite->id, $casaModel->id);
 
         return response()->json(['data' => [
             'id' => $invite->id,
@@ -51,6 +53,7 @@ class ConviteController extends Controller
 
         if ($invite->usado_em === null && $invite->revogado_em === null) {
             $invite->update(['revogado_em' => Carbon::now()]);
+            Audit::record($request->user()->id, 'convite.revoked', Convite::class, $invite->id, $casaModel->id);
         }
 
         return response()->noContent();
@@ -81,6 +84,9 @@ class ConviteController extends Controller
             $invite->update([
                 'usado_em' => Carbon::now(),
                 'usado_por_pessoa_id' => $pessoa->id,
+            ]);
+            Audit::record($request->user()->id, 'convite.used', Convite::class, $invite->id, $invite->casa_id, [
+                'pessoa_id' => $pessoa->id,
             ]);
         });
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCasaRequest;
 use App\Models\Casa;
+use App\Models\Audit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,6 +25,9 @@ class CasaController extends Controller
     {
         $casa = Casa::create($request->validated());
         $request->user()->pessoa->casas()->attach($casa->id);
+        Audit::record($request->user()->id, 'casa.created', Casa::class, $casa->id, $casa->id, [
+            'nome' => $casa->nome,
+        ]);
 
         return response()->json(['data' => $casa->only(['id', 'nome', 'created_at'])], 201);
     }

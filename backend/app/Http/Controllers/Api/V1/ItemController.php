@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreItemRequest;
 use App\Http\Requests\UpdateItemRequest;
 use App\Models\Casa;
+use App\Models\Audit;
 use App\Models\Item;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -57,6 +58,11 @@ class ItemController extends Controller
             return response()->json(['data' => $this->data($item)]);
         }
 
+        Audit::record($request->user()->id, 'item.created', Item::class, $item->id, $casa->id, [
+            'nome' => $item->nome,
+            'marcado' => $item->marcado,
+        ]);
+
         return response()->json(['data' => $this->data($item)], 201);
     }
 
@@ -89,14 +95,24 @@ class ItemController extends Controller
             $data['nome_normalizado'] = $normalizado;
         }
 
+        $before = $this->data($itemModel);
         $itemModel->update($data);
+        Audit::record($request->user()->id, 'item.updated', Item::class, $itemModel->id, $itemModel->casa_id, [
+            'before' => $before,
+            'changed' => array_intersect_key($data, array_flip(['nome', 'marcado'])),
+        ]);
 
         return response()->noContent();
     }
 
     public function destroy(Request $request, int $item): \Illuminate\Http\Response
     {
-        $this->itemInContext($request, $item)->delete();
+        $itemModel = $this->itemInContext($request, $item);
+        $before = $this->data($itemModel);
+        $itemModel->delete();
+        Audit::record($request->user()->id, 'item.deleted', Item::class, $itemModel->id, $itemModel->casa_id, [
+            'before' => $before,
+        ]);
 
         return response()->noContent();
     }
