@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'config/app_config.dart';
 
 class ApiException implements Exception {
   final int status;
@@ -13,12 +14,7 @@ class ApiClient {
   final String baseUrl;
   final SharedPreferences prefs;
   ApiClient({required this.prefs, String? baseUrl})
-    : baseUrl =
-          baseUrl ??
-          const String.fromEnvironment(
-            'API_BASE_URL',
-            defaultValue: 'http://127.0.0.1:8000/api',
-          );
+    : baseUrl = baseUrl ?? AppConfig.backendUrl;
   String? get token => prefs.getString('auth_token');
   Future<dynamic> request(
     String method,

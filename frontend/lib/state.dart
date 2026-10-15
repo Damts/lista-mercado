@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'api.dart';
-import 'models.dart';
+import 'models/house.dart';
+import 'models/item.dart';
+import 'models/user.dart';
 
 class AppState extends ChangeNotifier {
   final ApiClient api;
