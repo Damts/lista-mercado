@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CasaController;
+use App\Http\Controllers\Api\V1\CasaContextController;
 use App\Http\Controllers\Api\V1\ConviteController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +19,8 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('casas', [CasaController::class, 'index']);
+        Route::get('casa-atual', [CasaContextController::class, 'show'])
+            ->middleware('casa.context');
         Route::post('casas', [CasaController::class, 'store']);
         Route::get('casas/{casa}', [CasaController::class, 'show']);
         Route::post('casas/{casa}/convites', [ConviteController::class, 'store']);
