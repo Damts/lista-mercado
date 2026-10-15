@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
-import 'models.dart';
+import 'models/item.dart';
 import 'state.dart';
 
 Future<void> main() async {
