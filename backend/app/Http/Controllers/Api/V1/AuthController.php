@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
+use App\Models\Pessoa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,12 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request): JsonResponse
     {
-        $user = DB::transaction(fn (): User => User::create($request->validated()));
+        $user = DB::transaction(function () use ($request): User {
+            $user = User::create($request->validated());
+            Pessoa::create(['user_id' => $user->id]);
+
+            return $user;
+        });
         $token = $user->createToken('auth')->plainTextToken;
 
         return response()->json(['data' => [
