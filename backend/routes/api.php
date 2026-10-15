@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CasaController;
+use App\Http\Controllers\Api\V1\ConviteController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -19,5 +20,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('casas', [CasaController::class, 'index']);
         Route::post('casas', [CasaController::class, 'store']);
         Route::get('casas/{casa}', [CasaController::class, 'show']);
+        Route::post('casas/{casa}/convites', [ConviteController::class, 'store']);
+        Route::post('casas/{casa}/convites/{convite}/revogar', [ConviteController::class, 'revoke']);
+        Route::post('convites/entrar', [ConviteController::class, 'join']);
     });
 });
