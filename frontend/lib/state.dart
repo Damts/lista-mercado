@@ -47,7 +47,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> register(String name, String email, String password) async {
+  Future<void> register(
+    String name,
+    String email,
+    String password,
+    String passwordConfirmation,
+  ) async {
     final r = await api.request(
       'POST',
       '/v1/auth/register',
@@ -55,7 +60,7 @@ class AppState extends ChangeNotifier {
         'name': name,
         'email': email,
         'password': password,
-        'password_confirmation': password,
+        'password_confirmation': passwordConfirmation,
       },
     );
     await api.prefs.setString('auth_token', r['data']['token']);
@@ -131,6 +136,23 @@ class AppState extends ChangeNotifier {
       body: {'codigo': code.trim().toUpperCase()},
     );
     await loadHouses();
+  }
+
+  Future<String> createInvite(int houseId) async {
+    final r = await api.request('POST', '/v1/casas/$houseId/convites');
+    return r['data']['codigo'] as String;
+  }
+
+  Future<House> createHouse(String name) async {
+    final r = await api.request(
+      'POST',
+      '/v1/casas',
+      body: {'nome': name.trim()},
+    );
+    final house = House.fromJson(r['data']);
+    await loadHouses();
+    notifyListeners();
+    return house;
   }
 
   Future<void> add(String name) async {
