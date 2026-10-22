@@ -64,7 +64,7 @@ jobs:
 
       # app_config.dart é ignorado no git; o modelo versionado serve de base.
       - name: Config local
-        run: cp lib/config/appconfig.example lib/config/app_config.dart
+        run: cp lib/config/app_config.example.dart lib/config/app_config.dart
 
       - name: Dependências
         run: flutter pub get
