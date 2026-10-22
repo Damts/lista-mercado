@@ -7,6 +7,8 @@ import 'api.dart';
 import 'screens/houses_page.dart';
 import 'screens/list_page.dart';
 import 'screens/login_page.dart';
+import 'screens/profile_page.dart';
+import 'screens/settings_page.dart';
 import 'state.dart';
 
 Future<void> main() async {
@@ -39,6 +41,11 @@ class App extends StatelessWidget {
         GoRoute(path: '/login', builder: (_, _) => const LoginPage()),
         GoRoute(path: '/casas', builder: (_, _) => const HousesPage()),
         GoRoute(path: '/lista', builder: (_, _) => const ListPage()),
+        GoRoute(path: '/perfil', builder: (_, _) => const ProfilePage()),
+        GoRoute(
+          path: '/configuracoes',
+          builder: (_, _) => const SettingsPage(),
+        ),
       ],
     );
     return MaterialApp.router(

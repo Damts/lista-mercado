@@ -15,8 +15,18 @@ class _LoginState extends State<LoginPage> {
   final name = TextEditingController();
   final email = TextEditingController();
   final password = TextEditingController();
+  final confirm = TextEditingController();
   bool register = false, busy = false;
   String? error;
+
+  @override
+  void dispose() {
+    name.dispose();
+    email.dispose();
+    password.dispose();
+    confirm.dispose();
+    super.dispose();
+  }
 
   Future<void> submit() async {
     if (!form.currentState!.validate()) return;
@@ -24,7 +34,12 @@ class _LoginState extends State<LoginPage> {
     try {
       final state = context.read<AppState>();
       if (register) {
-        await state.register(name.text, email.text, password.text);
+        await state.register(
+          name.text,
+          email.text,
+          password.text,
+          confirm.text,
+        );
       } else {
         await state.login(email.text, password.text);
       }
@@ -38,6 +53,14 @@ class _LoginState extends State<LoginPage> {
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  void toggleMode() {
+    setState(() {
+      register = !register;
+      error = null;
+      confirm.clear();
+    });
   }
 
   @override
@@ -80,6 +103,17 @@ class _LoginState extends State<LoginPage> {
                     validator: (value) =>
                         value!.length < 8 ? 'Mínimo de 8 caracteres' : null,
                   ),
+                  if (register)
+                    TextFormField(
+                      controller: confirm,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirmar senha',
+                      ),
+                      validator: (value) => value == password.text
+                          ? null
+                          : 'As senhas não conferem',
+                    ),
                   if (error != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
@@ -102,9 +136,7 @@ class _LoginState extends State<LoginPage> {
                     ),
                   ),
                   TextButton(
-                    onPressed: busy
-                        ? null
-                        : () => setState(() => register = !register),
+                    onPressed: busy ? null : toggleMode,
                     child: Text(
                       register ? 'Já tenho conta' : 'Criar uma conta',
                     ),
