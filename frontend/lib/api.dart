@@ -7,15 +7,20 @@ class ApiException implements Exception {
   final int status;
   final String message;
   final String? type;
-  ApiException(this.status, this.message, [this.type]);
+  final String? errorCode;
+  ApiException(this.status, this.message, [this.type, this.errorCode]);
 }
 
 class ApiClient {
   final String baseUrl;
   final SharedPreferences prefs;
-  ApiClient({required this.prefs, String? baseUrl})
+  final http.Client? client;
+
+  ApiClient({required this.prefs, String? baseUrl, this.client})
     : baseUrl = baseUrl ?? AppConfig.backendUrl;
+
   String? get token => prefs.getString('auth_token');
+
   Future<dynamic> request(
     String method,
     String path, {
@@ -31,22 +36,35 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl$path');
     http.Response response;
     try {
+      final activeClient = client;
       response = await switch (method) {
-        'GET' => http.get(uri, headers: headers),
-        'POST' => http.post(
-          uri,
-          headers: headers,
-          body: jsonEncode(body ?? {}),
-        ),
-        'PATCH' => http.patch(
-          uri,
-          headers: headers,
-          body: jsonEncode(body ?? {}),
-        ),
-        'DELETE' => http.delete(uri, headers: headers),
+        'GET' =>
+          activeClient == null
+              ? http.get(uri, headers: headers)
+              : activeClient.get(uri, headers: headers),
+        'POST' =>
+          activeClient == null
+              ? http.post(uri, headers: headers, body: jsonEncode(body ?? {}))
+              : activeClient.post(
+                  uri,
+                  headers: headers,
+                  body: jsonEncode(body ?? {}),
+                ),
+        'PATCH' =>
+          activeClient == null
+              ? http.patch(uri, headers: headers, body: jsonEncode(body ?? {}))
+              : activeClient.patch(
+                  uri,
+                  headers: headers,
+                  body: jsonEncode(body ?? {}),
+                ),
+        'DELETE' =>
+          activeClient == null
+              ? http.delete(uri, headers: headers)
+              : activeClient.delete(uri, headers: headers),
         _ => throw StateError('Método inválido'),
       };
-    } catch (e) {
+    } catch (_) {
       throw ApiException(
         0,
         'Não foi possível conectar ao servidor. Verifique a rede e tente novamente.',
@@ -71,6 +89,7 @@ class ApiClient {
         response.statusCode,
         detail?.toString() ?? 'Não foi possível concluir a operação.',
         data['type']?.toString(),
+        data['error_code']?.toString(),
       );
     }
     if (response.statusCode == 204 || response.body.isEmpty) return null;

@@ -1,13 +1,34 @@
 class Item {
   final int id;
   final String name;
-  final bool checked;
+  final int quantity;
+  final double? price;
+  final bool bought;
 
-  Item({required this.id, required this.name, required this.checked});
+  const Item({
+    required this.id,
+    required this.name,
+    required this.quantity,
+    required this.price,
+    required this.bought,
+  });
 
   factory Item.fromJson(Map<String, dynamic> json) => Item(
-    id: json['id'],
-    name: json['nome'],
-    checked: json['marcado'] == true,
+    id: (json['id'] as num).toInt(),
+    name: json['nome'] as String,
+    quantity: (json['quantidade'] as num).toInt(),
+    price: json['preco'] == null
+        ? null
+        : double.parse(json['preco'].toString()),
+    bought: json['comprado'] as bool? ?? false,
   );
+
+  Item copyWith({String? name, int? quantity, double? price, bool? bought}) =>
+      Item(
+        id: id,
+        name: name ?? this.name,
+        quantity: quantity ?? this.quantity,
+        price: price ?? this.price,
+        bought: bought ?? this.bought,
+      );
 }
