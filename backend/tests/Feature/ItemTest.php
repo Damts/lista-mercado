@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Item;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class ItemTest extends TestCase
@@ -24,6 +22,7 @@ class ItemTest extends TestCase
         $created->assertJsonPath('data.nome', 'Leite')
             ->assertJsonPath('data.quantidade', 2)
             ->assertJsonPath('data.preco', null)
+            ->assertJsonPath('data.medida', 'un')
             ->assertJsonPath('data.comprado', false);
         $this->assertDatabaseHas('itens', ['id' => $itemId, 'comprado' => false]);
 
@@ -34,7 +33,9 @@ class ItemTest extends TestCase
 
         $this->asHouse($token, $houseId)
             ->patchJson('/api/v1/itens/'.$itemId, ['comprado' => true])
-            ->assertNoContent();
+            ->assertOk()
+            ->assertJsonPath('data.comprado', true)
+            ->assertJsonPath('data.medida', 'un');
         $this->asHouse($token, $houseId)
             ->getJson('/api/v1/itens')
             ->assertJsonPath('data.0.comprado', true);
@@ -113,6 +114,88 @@ class ItemTest extends TestCase
             ->assertBadRequest()
             ->assertJsonPath('type', 'bad_request')
             ->assertJsonPath('error_code', 'cursor_invalid');
+    }
+
+    public function test_patch_updates_all_fields_and_normalizes_measure(): void
+    {
+        $token = $this->register('owner@example.com');
+        $houseId = $this->createHouse($token, 'Casa');
+        $itemId = $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/itens', ['nome' => 'Leite', 'quantidade' => 1])
+            ->json('data.id');
+
+        $response = $this->asHouse($token, $houseId)
+            ->patchJson('/api/v1/itens/'.$itemId, [
+                'nome' => 'Leite integral',
+                'quantidade' => 2,
+                'medida' => ' KG ',
+                'preco' => '12.50',
+                'comprado' => true,
+            ])
+            ->assertOk();
+
+        $response->assertJsonPath('data.nome', 'Leite integral')
+            ->assertJsonPath('data.quantidade', 2)
+            ->assertJsonPath('data.medida', 'kg')
+            ->assertJsonPath('data.preco', '12.50')
+            ->assertJsonPath('data.comprado', true);
+        $this->assertDatabaseHas('itens', ['id' => $itemId, 'medida' => 'kg']);
+    }
+
+    public function test_measure_must_be_from_the_supported_values(): void
+    {
+        $token = $this->register('owner@example.com');
+        $houseId = $this->createHouse($token, 'Casa');
+        $itemId = $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/itens', ['nome' => 'Leite', 'quantidade' => 1])
+            ->json('data.id');
+
+        $this->asHouse($token, $houseId)
+            ->patchJson('/api/v1/itens/'.$itemId, ['medida' => 'litro'])
+            ->assertUnprocessable();
+        $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/itens', ['nome' => 'Oleo', 'quantidade' => 1, 'medida' => ' KG '])
+            ->assertCreated()
+            ->assertJsonPath('data.medida', 'kg');
+        $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/itens', ['nome' => 'Acucar', 'quantidade' => 1, 'medida' => 'cx'])
+            ->assertUnprocessable();
+    }
+
+    public function test_items_are_ordered_by_updated_at_after_an_edit(): void
+    {
+        $token = $this->register('owner@example.com');
+        $houseId = $this->createHouse($token, 'Casa');
+        $firstId = $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/itens', ['nome' => 'Primeiro', 'quantidade' => 1])
+            ->json('data.id');
+        $secondId = $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/itens', ['nome' => 'Segundo', 'quantidade' => 1])
+            ->json('data.id');
+
+        $this->travel(2)->seconds();
+        $this->asHouse($token, $houseId)
+            ->patchJson('/api/v1/itens/'.$firstId, ['comprado' => true])
+            ->assertOk();
+        $this->travelBack();
+
+        $page = $this->asHouse($token, $houseId)->getJson('/api/v1/itens')->assertOk();
+        $this->assertSame($firstId, $page->json('data.0.id'));
+        $this->assertSame($secondId, $page->json('data.1.id'));
+    }
+
+    public function test_patch_invalid_required_values_does_not_mutate_item(): void
+    {
+        $token = $this->register('owner@example.com');
+        $houseId = $this->createHouse($token, 'Casa');
+        $itemId = $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/itens', ['nome' => 'Leite', 'quantidade' => 1])
+            ->json('data.id');
+
+        $this->asHouse($token, $houseId)
+            ->patchJson('/api/v1/itens/'.$itemId, ['nome' => ' ', 'quantidade' => 0, 'medida' => 'cx'])
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('itens', ['id' => $itemId, 'nome' => 'Leite', 'quantidade' => 1, 'medida' => 'un']);
     }
 
     public function test_item_access_stays_scoped_to_selected_house(): void
