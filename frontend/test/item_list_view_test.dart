@@ -56,7 +56,7 @@ Future<AppState> _state(MockClient client) async {
 }
 
 http.Response? _commonResponse(http.Request request) {
-  if (request.url.path == '/api/v1/casa-atual') {
+  if (request.url.path == '/api/v1/casas/7') {
     return _json({
       'data': {'id': 7, 'nome': 'Casa de teste'},
     });
@@ -191,7 +191,7 @@ void main() {
     final selection = errorState.selectHouse(
       House(id: 7, name: 'Casa de teste'),
     );
-    expect(errorState.itemsLoading, isTrue);
+    expect(errorState.houseLoading, isTrue);
     await selection;
     await tester.pumpWidget(_wrap(errorState));
     await tester.pumpAndSettle();

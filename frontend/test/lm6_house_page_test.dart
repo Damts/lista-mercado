@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -47,7 +48,10 @@ void main() {
     'casa usa nome do contrato e cards mostram nome, quantidade e preço',
     (tester) async {
       final client = MockClient((request) async {
-        if (request.url.path == '/api/v1/casa-atual') {
+        if (request.url.path == '/api/v1/casas/12') {
+          expect(request.method, 'GET');
+          expect(request.headers['authorization'], 'Bearer test-token');
+          expect(request.headers.containsKey('x-casa-id'), isFalse);
           return _json({
             'data': {'id': 12, 'nome': 'Casa do contrato'},
           });
@@ -100,7 +104,7 @@ void main() {
     String? houseHeader;
     var itemReads = 0;
     final client = MockClient((request) async {
-      if (request.url.path == '/api/v1/casa-atual') {
+      if (request.url.path == '/api/v1/casas/12') {
         return _json({
           'data': {'id': 12, 'nome': 'Casa'},
         });
@@ -162,5 +166,170 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Adicionar'));
     await tester.pumpAndSettle();
     expect(submittedBody, {'nome': 'Azeite', 'quantidade': 1, 'preco': '0.10'});
+  });
+
+  testWidgets('tela mostra loading da casa e depois o estado vazio', (
+    tester,
+  ) async {
+    final houseResponse = Completer<http.Response>();
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/12') {
+        return houseResponse.future;
+      }
+      if (request.url.path == '/api/v1/itens') {
+        return _json(_page([]));
+      }
+      return _json({'message': 'Não encontrado'}, status: 404);
+    });
+    SharedPreferences.setMockInitialValues({'auth_token': 'test-token'});
+    final prefs = await SharedPreferences.getInstance();
+    final state = AppState(
+      ApiClient(
+        prefs: prefs,
+        baseUrl: 'https://api.example.test/api',
+        client: client,
+      ),
+    );
+    final loading = state.selectHouse(House(id: 12, name: 'Nome anterior'));
+    await tester.pumpWidget(_wrap(state));
+
+    expect(find.text('Carregando casa'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CircularProgressIndicator &&
+            widget.semanticsLabel == 'Carregando casa',
+      ),
+      findsOneWidget,
+    );
+
+    houseResponse.complete(
+      _json({
+        'data': {
+          'id': 12,
+          'nome': 'Casa carregada',
+          'created_at': '2026-10-22T12:00:00.000000Z',
+        },
+      }),
+    );
+    await loading;
+    await tester.pumpAndSettle();
+
+    expect(find.text('Casa carregada'), findsOneWidget);
+    expect(find.text('Sua lista está vazia'), findsOneWidget);
+  });
+
+  testWidgets('404 de casa mostra erro e retry refaz GET /casas/{id}', (
+    tester,
+  ) async {
+    var houseRequests = 0;
+    var itemRequests = 0;
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/12') {
+        houseRequests++;
+        expect(request.method, 'GET');
+        expect(request.headers['authorization'], 'Bearer test-token');
+        expect(request.headers.containsKey('x-casa-id'), isFalse);
+        if (houseRequests == 1) {
+          return _json({
+            'message': 'Recurso não encontrado.',
+            'type': 'not_found',
+            'error_code': 'house_not_found',
+          }, status: 404);
+        }
+        return _json({
+          'data': {
+            'id': 12,
+            'nome': 'Casa recuperada',
+            'created_at': '2026-10-22T12:00:00.000000Z',
+          },
+        });
+      }
+      if (request.url.path == '/api/v1/itens') {
+        itemRequests++;
+        expect(request.headers['x-casa-id'], '12');
+        return _json(
+          _page([_item(id: 3, name: 'Leite', quantity: 1, price: '2.75')]),
+        );
+      }
+      return _json({'message': 'Não encontrado'}, status: 404);
+    });
+    SharedPreferences.setMockInitialValues({'auth_token': 'test-token'});
+    final prefs = await SharedPreferences.getInstance();
+    final state = AppState(
+      ApiClient(
+        prefs: prefs,
+        baseUrl: 'https://api.example.test/api',
+        client: client,
+      ),
+    );
+    await state.selectHouse(House(id: 12, name: 'Nome anterior'));
+    await tester.pumpWidget(_wrap(state));
+    await tester.pumpAndSettle();
+
+    expect(houseRequests, 1);
+    expect(itemRequests, 0);
+    expect(
+      find.text(
+        'Casa não encontrada ou sem acesso. Tente novamente ou volte para suas casas.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Tentar novamente'), findsOneWidget);
+
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pumpAndSettle();
+
+    expect(houseRequests, 2);
+    expect(itemRequests, 1);
+    expect(find.text('Casa recuperada'), findsOneWidget);
+    expect(find.text('Leite'), findsOneWidget);
+  });
+
+  testWidgets('erro ao carregar itens mantém nome e oferece retry', (
+    tester,
+  ) async {
+    var itemRequests = 0;
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/12') {
+        return _json({
+          'data': {
+            'id': 12,
+            'nome': 'Casa estável',
+            'created_at': '2026-10-22T12:00:00.000000Z',
+          },
+        });
+      }
+      if (request.url.path == '/api/v1/itens') {
+        itemRequests++;
+        if (itemRequests == 1) {
+          return _json({'message': 'Falha temporária'}, status: 503);
+        }
+        return _json(_page([]));
+      }
+      return _json({'message': 'Não encontrado'}, status: 404);
+    });
+    SharedPreferences.setMockInitialValues({'auth_token': 'test-token'});
+    final prefs = await SharedPreferences.getInstance();
+    final state = AppState(
+      ApiClient(
+        prefs: prefs,
+        baseUrl: 'https://api.example.test/api',
+        client: client,
+      ),
+    );
+    await state.selectHouse(House(id: 12, name: 'Nome anterior'));
+    await tester.pumpWidget(_wrap(state));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Casa estável'), findsOneWidget);
+    expect(find.text('Falha temporária'), findsOneWidget);
+    expect(find.text('Tentar novamente'), findsOneWidget);
+
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pumpAndSettle();
+
+    expect(itemRequests, 2);
+    expect(find.text('Sua lista está vazia'), findsOneWidget);
   });
 }

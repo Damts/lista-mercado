@@ -13,6 +13,9 @@ class AppState extends ChangeNotifier {
   List<Item> items = [];
   bool loading = true;
   String? error;
+  bool houseLoading = false;
+  String? houseError;
+  House? _requestedHouse;
   bool itemsLoading = false;
   bool itemsLoadingMore = false;
   bool hasMoreItems = false;
@@ -84,6 +87,9 @@ class AppState extends ChangeNotifier {
     user = null;
     houses = [];
     activeHouse = null;
+    _requestedHouse = null;
+    houseLoading = false;
+    houseError = null;
     items = [];
     itemsLoading = false;
     itemsLoadingMore = false;
@@ -108,6 +114,9 @@ class AppState extends ChangeNotifier {
     if (activeHouse != null && !houses.any((x) => x.id == activeHouse!.id)) {
       _itemsGeneration++;
       activeHouse = null;
+      _requestedHouse = null;
+      houseLoading = false;
+      houseError = null;
       items = [];
       itemsLoading = false;
       itemsLoadingMore = false;
@@ -120,10 +129,23 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> selectHouse(House house) async {
+    _requestedHouse = house;
+    await _loadHouse(house);
+  }
+
+  Future<void> retryHouse() async {
+    final house = _requestedHouse;
+    if (house == null) return;
+    await _loadHouse(house);
+  }
+
+  Future<void> _loadHouse(House house) async {
     final generation = ++_itemsGeneration;
-    activeHouse = house;
+    activeHouse = null;
     items = [];
-    itemsLoading = true;
+    houseLoading = true;
+    houseError = null;
+    itemsLoading = false;
     itemsLoadingMore = false;
     hasMoreItems = false;
     nextItemsCursor = null;
@@ -132,22 +154,33 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await api.request(
-        'GET',
-        '/v1/casa-atual',
-        houseId: house.id,
-      );
+      final response = await api.request('GET', '/v1/casas/${house.id}');
       if (generation != _itemsGeneration) return;
-      activeHouse = House.fromJson(response['data']);
-      await _loadItemsPage(generation, house.id, cursor: null, firstPage: true);
+      final loadedHouse = House.fromJson(response['data']);
+      activeHouse = loadedHouse;
+      if (!houses.any((current) => current.id == loadedHouse.id)) {
+        houses = [...houses, loadedHouse];
+      }
+      houseLoading = false;
+      await _loadItemsPage(
+        generation,
+        loadedHouse.id,
+        cursor: null,
+        firstPage: true,
+      );
     } catch (exception) {
       if (generation != _itemsGeneration) return;
-      await _handleHouseError(exception, house.id);
-      if (generation == _itemsGeneration) {
-        itemsLoading = false;
-        itemsError = _messageFor(exception);
-        notifyListeners();
+      if (exception is ApiException && exception.status == 401) {
+        await clearSession();
+        return;
       }
+      if (exception is ApiException && exception.status == 404) {
+        houses.removeWhere((current) => current.id == house.id);
+      }
+      houseLoading = false;
+      itemsLoading = false;
+      houseError = _houseErrorMessage(exception);
+      notifyListeners();
     }
   }
 
@@ -244,6 +277,7 @@ class AppState extends ChangeNotifier {
         items = [];
         hasMoreItems = false;
         nextItemsCursor = null;
+        houseError = _houseErrorMessage(exception);
       }
       itemsError = _messageFor(exception);
     } finally {
@@ -255,14 +289,13 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> _handleHouseError(Object exception, int houseId) async {
-    if (exception is ApiException && exception.status == 401) {
-      await clearSession();
-    } else if (exception is ApiException && exception.status == 404) {
-      houses.removeWhere((house) => house.id == houseId);
-      activeHouse = null;
-      items = [];
+  String _houseErrorMessage(Object exception) {
+    if (exception is ApiException && exception.status == 404) {
+      return 'Casa não encontrada ou sem acesso. Tente novamente ou volte para suas casas.';
     }
+    return exception is ApiException
+        ? exception.message
+        : 'Não foi possível carregar a casa. Verifique a conexão e tente novamente.';
   }
 
   String _messageFor(Object exception) => exception is ApiException
