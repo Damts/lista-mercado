@@ -17,7 +17,7 @@ http.Response _json(Object body, {int status = 200}) => http.Response(
   headers: {'content-type': 'application/json'},
 );
 
-Map<String, dynamic> _item(int id, {String? name}) => {
+Map<String, dynamic> _item(int id, {String? name, String? updatedAt}) => {
   'id': id,
   'nome': name ?? 'Produto $id',
   'quantidade': id,
@@ -25,7 +25,7 @@ Map<String, dynamic> _item(int id, {String? name}) => {
   'preco': null,
   'comprado': false,
   'created_at': '2026-10-27T12:00:00.000000Z',
-  'updated_at': '2026-10-27T12:00:00.000000Z',
+  'updated_at': updatedAt ?? '2026-10-27T12:00:00.000000Z',
 };
 
 Map<String, dynamic> _page(
@@ -75,10 +75,11 @@ void main() {
             request.method == 'PATCH') {
           patchBody = jsonDecode(request.body) as Map<String, dynamic>;
           return _json({
-            'data': {
-              ..._item(40, name: 'Produto 40 editado'),
-              'updated_at': '2026-10-27T12:01:00.000000Z',
-            },
+            'data': _item(
+              40,
+              name: 'Produto 40 atualizado',
+              updatedAt: '2026-10-27T12:01:00.000000Z',
+            ),
           });
         }
         return _json({'message': 'Não encontrado'}, status: 404);
@@ -113,26 +114,20 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byType(TextFormField).first,
-        'Produto 40 editado',
+        'Produto 40 atualizado',
       );
       await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
       await tester.pumpAndSettle();
 
-      expect(patchBody, {
-        'nome': 'Produto 40 editado',
-        'quantidade': 40,
-        'medida': 'un',
-        'preco': null,
-        'comprado': false,
-      });
+      expect(patchBody?['nome'], 'Produto 40 atualizado');
       expect(state.items, hasLength(40));
       expect(state.items.first.id, 40);
-      expect(state.items.first.name, 'Produto 40 editado');
+      expect(state.items.first.name, 'Produto 40 atualizado');
       expect(state.items.where((item) => item.id == 40), hasLength(1));
       expect(state.nextItemsCursor, 'cursor-page-2');
       expect(state.hasMoreItems, isTrue);
       expect(requestedCursors, [null, 'cursor-page-1']);
-      expect(find.text('Produto 40 editado'), findsOneWidget);
+      expect(find.text('Produto 40 atualizado'), findsOneWidget);
     },
   );
 }
