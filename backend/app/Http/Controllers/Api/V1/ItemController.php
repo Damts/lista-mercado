@@ -12,6 +12,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
@@ -26,14 +27,14 @@ class ItemController extends Controller
 
         $query = Item::query()
             ->where('casa_id', $casa->id)
-            ->orderByDesc('created_at')
+            ->orderByDesc('updated_at')
             ->orderByDesc('id');
 
         if ($cursor !== null) {
             $query->where(function ($query) use ($cursor): void {
-                $query->where('created_at', '<', $cursor['created_at'])
+                $query->where('updated_at', '<', $cursor['updated_at'])
                     ->orWhere(function ($query) use ($cursor): void {
-                        $query->where('created_at', '=', $cursor['created_at'])
+                        $query->where('updated_at', '=', $cursor['updated_at'])
                             ->where('id', '<', $cursor['id']);
                     });
             });
@@ -41,7 +42,7 @@ class ItemController extends Controller
 
         $items = $query
             ->limit(self::PAGE_SIZE + 1)
-            ->get(['id', 'nome', 'quantidade', 'preco', 'comprado', 'created_at', 'updated_at']);
+            ->get(['id', 'nome', 'quantidade', 'medida', 'preco', 'comprado', 'created_at', 'updated_at']);
         $hasMore = $items->count() > self::PAGE_SIZE;
         $page = $items->take(self::PAGE_SIZE)->values();
         $last = $page->last();
@@ -76,6 +77,7 @@ class ItemController extends Controller
                 'nome' => $data['nome'],
                 'nome_normalizado' => $normalizado,
                 'quantidade' => $data['quantidade'],
+                'medida' => $data['medida'] ?? 'un',
                 'preco' => $data['preco'] ?? null,
                 'comprado' => false,
             ]);
@@ -91,6 +93,7 @@ class ItemController extends Controller
         Audit::record($request->user()->id, 'item.created', Item::class, $item->id, $casa->id, [
             'nome' => $item->nome,
             'quantidade' => $item->quantidade,
+            'medida' => $item->medida,
             'preco' => $item->preco,
             'comprado' => $item->comprado,
         ]);
@@ -105,7 +108,7 @@ class ItemController extends Controller
         return response()->json(['data' => $this->data($itemModel)]);
     }
 
-    public function update(UpdateItemRequest $request, int $item): \Illuminate\Http\Response
+    public function update(UpdateItemRequest $request, int $item): JsonResponse
     {
         $itemModel = $this->itemInContext($request, $item);
         $data = $request->validated();
@@ -129,15 +132,16 @@ class ItemController extends Controller
 
         $before = $this->data($itemModel);
         $itemModel->update($data);
+        $itemModel->refresh();
         Audit::record($request->user()->id, 'item.updated', Item::class, $itemModel->id, $itemModel->casa_id, [
             'before' => $before,
-            'changed' => array_intersect_key($data, array_flip(['nome', 'quantidade', 'preco', 'comprado'])),
+            'changed' => array_intersect_key($data, array_flip(['nome', 'quantidade', 'medida', 'preco', 'comprado'])),
         ]);
 
-        return response()->noContent();
+        return response()->json(['data' => $this->data($itemModel)]);
     }
 
-    public function destroy(Request $request, int $item): \Illuminate\Http\Response
+    public function destroy(Request $request, int $item): Response
     {
         $itemModel = $this->itemInContext($request, $item);
         $before = $this->data($itemModel);
@@ -163,21 +167,21 @@ class ItemController extends Controller
             ->firstOrFail();
     }
 
-    /** @return array{id: int, nome: string, quantidade: int, preco: string|null, comprado: bool, created_at: mixed, updated_at: mixed} */
+    /** @return array{id: int, nome: string, quantidade: int, medida: string, preco: string|null, comprado: bool, created_at: mixed, updated_at: mixed} */
     private function data(Item $item): array
     {
-        return $item->only(['id', 'nome', 'quantidade', 'preco', 'comprado', 'created_at', 'updated_at']);
+        return $item->only(['id', 'nome', 'quantidade', 'medida', 'preco', 'comprado', 'created_at', 'updated_at']);
     }
 
     private function encodeCursor(Item $item): string
     {
         return base64_encode(json_encode([
-            'created_at' => $item->getRawOriginal('created_at'),
+            'updated_at' => $item->getRawOriginal('updated_at'),
             'id' => $item->id,
         ], JSON_THROW_ON_ERROR));
     }
 
-    /** @return array{created_at: string, id: int}|null */
+    /** @return array{updated_at: string, id: int}|null */
     private function decodeCursor(?string $encoded): ?array
     {
         if ($encoded === null) {
@@ -187,17 +191,17 @@ class ItemController extends Controller
         $decoded = base64_decode($encoded, true);
         $payload = $decoded === false ? null : json_decode($decoded, true);
 
-        if (!is_array($payload) || !isset($payload['created_at'], $payload['id']) || !is_int($payload['id'])) {
+        if (! is_array($payload) || ! isset($payload['updated_at'], $payload['id']) || ! is_int($payload['id'])) {
             throw new BadRequestHttpException('Cursor inválido.');
         }
 
         try {
-            $createdAt = CarbonImmutable::parse($payload['created_at'])->format('Y-m-d H:i:s');
+            $updatedAt = CarbonImmutable::parse($payload['updated_at'])->format('Y-m-d H:i:s');
         } catch (\Throwable) {
             throw new BadRequestHttpException('Cursor inválido.');
         }
 
-        return ['created_at' => $createdAt, 'id' => $payload['id']];
+        return ['updated_at' => $updatedAt, 'id' => $payload['id']];
     }
 
     private function normalize(string $name): string
