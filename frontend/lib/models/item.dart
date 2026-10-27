@@ -2,7 +2,7 @@ class Item {
   final int id;
   final String name;
   final int quantity;
-  final double? price;
+  final String? price;
   final bool bought;
 
   const Item({
@@ -17,13 +17,11 @@ class Item {
     id: (json['id'] as num).toInt(),
     name: json['nome'] as String,
     quantity: (json['quantidade'] as num).toInt(),
-    price: json['preco'] == null
-        ? null
-        : double.parse(json['preco'].toString()),
+    price: json['preco']?.toString(),
     bought: json['comprado'] as bool? ?? false,
   );
 
-  Item copyWith({String? name, int? quantity, double? price, bool? bought}) =>
+  Item copyWith({String? name, int? quantity, String? price, bool? bought}) =>
       Item(
         id: id,
         name: name ?? this.name,

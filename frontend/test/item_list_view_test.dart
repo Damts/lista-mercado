@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lista_mercado/api.dart';
 import 'package:lista_mercado/models/house.dart';
+import 'package:lista_mercado/models/item.dart';
 import 'package:lista_mercado/state.dart';
 import 'package:lista_mercado/widgets/item_list_view.dart';
 import 'package:provider/provider.dart';
@@ -64,6 +65,11 @@ http.Response? _commonResponse(http.Request request) {
 }
 
 void main() {
+  test('preço decimal mantém a representação original em string', () {
+    final item = Item.fromJson({..._item(1), 'preco': '0.10'});
+    expect(item.price, '0.10');
+  });
+
   testWidgets('rolagem carrega a próxima página uma vez e encerra no fim', (
     tester,
   ) async {

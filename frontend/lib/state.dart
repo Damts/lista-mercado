@@ -295,7 +295,7 @@ class AppState extends ChangeNotifier {
     return house;
   }
 
-  Future<void> add(String name, {required int quantity, double? price}) async {
+  Future<void> add(String name, {required int quantity, String? price}) async {
     final houseId = activeHouse?.id;
     if (houseId == null) return;
     await api.request(
