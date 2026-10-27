@@ -343,38 +343,56 @@ class AppState extends ChangeNotifier {
   Future<void> toggle(Item item) async {
     final houseId = activeHouse?.id;
     if (houseId == null) return;
-    await api.request(
+    final response = await api.request(
       'PATCH',
       '/v1/itens/${item.id}',
       body: {'comprado': !item.bought},
       houseId: houseId,
     );
-    items = items
-        .map(
-          (current) => current.id == item.id
-              ? current.copyWith(bought: !item.bought)
-              : current,
-        )
-        .toList(growable: false);
-    notifyListeners();
+    _replaceUpdatedItem(Item.fromJson(response['data']));
   }
 
-  Future<void> edit(Item item, String name) async {
+  Future<Item> updateItem({
+    required Item item,
+    required String name,
+    required int quantity,
+    required String measure,
+    required String? price,
+    required bool bought,
+  }) async {
     final houseId = activeHouse?.id;
-    if (houseId == null) return;
-    await api.request(
+    if (houseId == null) throw StateError('Nenhuma casa selecionada.');
+    final response = await api.request(
       'PATCH',
       '/v1/itens/${item.id}',
-      body: {'nome': name.trim()},
+      body: {
+        'nome': name.trim(),
+        'quantidade': quantity,
+        'medida': measure,
+        'preco': price,
+        'comprado': bought,
+      },
       houseId: houseId,
     );
-    items = items
-        .map(
-          (current) => current.id == item.id
-              ? current.copyWith(name: name.trim())
-              : current,
-        )
-        .toList(growable: false);
+    final updated = Item.fromJson(response['data']);
+    _replaceUpdatedItem(updated);
+    return updated;
+  }
+
+  void _replaceUpdatedItem(Item updated) {
+    final uniqueItems = <int, Item>{updated.id: updated};
+    for (final current in items) {
+      uniqueItems.putIfAbsent(current.id, () => current);
+    }
+    final otherItems =
+        uniqueItems.values.where((current) => current.id != updated.id).toList()
+          ..sort((left, right) {
+            final timestampOrder = right.updatedAt.compareTo(left.updatedAt);
+            return timestampOrder != 0
+                ? timestampOrder
+                : right.id.compareTo(left.id);
+          });
+    items = [updated, ...otherItems];
     notifyListeners();
   }
 
