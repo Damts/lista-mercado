@@ -22,7 +22,9 @@ class UpdateItemRequest extends FormRequest
     {
         return [
             'nome' => ['sometimes', 'required', 'string', 'max:120'],
-            'marcado' => ['sometimes', 'boolean'],
+            'quantidade' => ['sometimes', 'required', 'integer', 'min:1'],
+            'preco' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'comprado' => ['sometimes', 'boolean'],
         ];
     }
 }
