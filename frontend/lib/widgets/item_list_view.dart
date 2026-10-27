@@ -170,7 +170,7 @@ class _ItemCard extends StatelessWidget {
   String get _priceLabel {
     final price = item.price;
     if (price == null) return 'Preço não informado';
-    return 'R\$ ${price.toStringAsFixed(2).replaceAll('.', ',')}';
+    return 'R\$ ${price.replaceFirst('.', ',')}';
   }
 
   @override
