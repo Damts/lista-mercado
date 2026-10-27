@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/item.dart';
 import '../state.dart';
+import 'edit_item_dialog.dart';
 
 class ItemListView extends StatefulWidget {
   const ItemListView({super.key});
@@ -57,6 +58,27 @@ class _ItemListViewState extends State<ItemListView> {
           content: Text('Não foi possível atualizar o item. Tente novamente.'),
         ),
       );
+    }
+  }
+
+  Future<void> _edit(Item item) async {
+    final state = context.read<AppState>();
+    final updated = await showDialog<Item>(
+      context: context,
+      builder: (_) => EditItemDialog(item: item, onSave: state.updateItem),
+    );
+    if (updated != null && mounted) {
+      if (_scrollController.hasClients) {
+        await _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        );
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Item atualizado.')));
     }
   }
 
@@ -116,7 +138,11 @@ class _ItemListViewState extends State<ItemListView> {
         itemBuilder: (context, index) {
           if (index < state.items.length) {
             final item = state.items[index];
-            return _ItemCard(item: item, onToggle: () => _toggle(item));
+            return _ItemCard(
+              item: item,
+              onToggle: () => _toggle(item),
+              onTap: () => _edit(item),
+            );
           }
           return _PageFooter(
             state: state,
@@ -164,8 +190,13 @@ class _InitialError extends StatelessWidget {
 class _ItemCard extends StatelessWidget {
   final Item item;
   final VoidCallback onToggle;
+  final VoidCallback onTap;
 
-  const _ItemCard({required this.item, required this.onToggle});
+  const _ItemCard({
+    required this.item,
+    required this.onToggle,
+    required this.onTap,
+  });
 
   String get _priceLabel {
     final price = item.price;
@@ -177,6 +208,7 @@ class _ItemCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: ListTile(
       minVerticalPadding: 12,
+      onTap: onTap,
       leading: Checkbox(
         value: item.bought,
         onChanged: (_) => onToggle(),
@@ -191,7 +223,7 @@ class _ItemCard extends StatelessWidget {
               )
             : null,
       ),
-      subtitle: Text('Quantidade: ${item.quantity} · $_priceLabel'),
+      subtitle: Text('${item.quantity} ${item.measure} · $_priceLabel'),
     ),
   );
 }

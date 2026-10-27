@@ -27,6 +27,7 @@ Map<String, dynamic> _item({
   'id': id,
   'nome': name,
   'quantidade': quantity,
+  'medida': 'un',
   'preco': price,
   'comprado': false,
   'created_at': '2026-10-22T12:00:00.000000Z',
@@ -84,10 +85,10 @@ void main() {
       expect(find.text('Arroz'), findsOneWidget);
       expect(find.textContaining(r'R$ 0,10'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('Quantidade: 1 · Preço não informado'),
+        find.textContaining('1 un · Preço não informado'),
         200,
       );
-      expect(find.text('Quantidade: 1 · Preço não informado'), findsOneWidget);
+      expect(find.textContaining('1 un · Preço não informado'), findsOneWidget);
       expect(find.byTooltip('Adicionar item'), findsOneWidget);
     },
   );
