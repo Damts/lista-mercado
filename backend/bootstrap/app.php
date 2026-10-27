@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'message' => 'Os dados enviados são inválidos.',
                     'type' => 'validation_error',
+                    'error_code' => 'validation_error',
                     'errors' => $exception->errors(),
                 ], 422);
             }
@@ -33,7 +34,28 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'message' => 'Recurso não encontrado.',
                     'type' => 'not_found',
+                    'error_code' => 'resource_not_found',
                 ], 404);
+            }
+        });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\BadRequestHttpException $exception, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => $exception->getMessage() ?: 'Requisição inválida.',
+                    'type' => 'bad_request',
+                    'error_code' => 'cursor_invalid',
+                ], 400);
+            }
+        });
+
+        $exceptions->render(function (\Symfony\Component\Routing\Exception\RouteNotFoundException $exception, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Autenticação necessária.',
+                    'type' => 'unauthenticated',
+                    'error_code' => 'unauthenticated',
+                ], 401);
             }
         });
 
@@ -42,6 +64,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'message' => 'Autenticação necessária.',
                     'type' => 'unauthenticated',
+                    'error_code' => 'unauthenticated',
                 ], 401);
             }
         });
@@ -53,6 +76,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'message' => 'Ocorreu um erro interno.',
                     'type' => 'internal_error',
+                    'error_code' => 'internal_error',
                 ], 500);
             }
         });

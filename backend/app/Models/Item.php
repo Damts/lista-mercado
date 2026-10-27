@@ -8,11 +8,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Item extends Model
 {
     protected $table = 'itens';
-    protected $fillable = ['casa_id', 'nome', 'nome_normalizado', 'marcado'];
+    protected $fillable = ['casa_id', 'nome', 'nome_normalizado', 'quantidade', 'preco', 'comprado'];
 
     protected function casts(): array
     {
-        return ['marcado' => 'boolean'];
+        return [
+            'quantidade' => 'integer',
+            'preco' => 'decimal:2',
+            'comprado' => 'boolean',
+        ];
     }
 
     public function casa(): BelongsTo

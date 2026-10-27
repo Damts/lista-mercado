@@ -56,6 +56,28 @@ class CasaTest extends TestCase
             ->assertUnprocessable();
     }
 
+    public function test_house_contract_returns_an_explicit_not_found_for_another_users_house(): void
+    {
+        $ownerToken = $this->register('owner@example.com');
+        $houseId = $this->createHouse($ownerToken, 'Privada');
+        $outsiderToken = $this->register('outsider@example.com');
+
+        $this->app['auth']->forgetGuards();
+
+        $this->withToken($outsiderToken)
+            ->getJson('/api/v1/casas/'.$houseId)
+            ->assertNotFound()
+            ->assertJsonPath('error_code', 'house_not_found')
+            ->assertJsonMissingPath('data');
+    }
+
+    private function createHouse(string $token, string $name): int
+    {
+        return $this->withToken($token)
+            ->postJson('/api/v1/casas', ['nome' => $name])
+            ->json('data.id');
+    }
+
     private function register(string $email): string
     {
         return $this->postJson('/api/v1/auth/register', [

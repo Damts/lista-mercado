@@ -20,6 +20,10 @@ class StoreItemRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['nome' => ['required', 'string', 'max:120']];
+        return [
+            'nome' => ['required', 'string', 'max:120'],
+            'quantidade' => ['required', 'integer', 'min:1'],
+            'preco' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+        ];
     }
 }

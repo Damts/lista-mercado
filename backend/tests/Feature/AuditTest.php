@@ -19,7 +19,7 @@ class AuditTest extends TestCase
 
         $this->withToken($token)
             ->withHeader('X-Casa-ID', (string) $house)
-            ->postJson('/api/v1/itens', ['nome' => 'Arroz'])
+            ->postJson('/api/v1/itens', ['nome' => 'Arroz', 'quantidade' => 1])
             ->assertCreated();
 
         $audits = Audit::query()->get();

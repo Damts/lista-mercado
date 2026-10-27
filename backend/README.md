@@ -54,6 +54,18 @@ In order to ensure that the Laravel community is welcoming to all, please review
 
 If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
 
+
+## Contrato de itens — LM-7
+
+Todas as rotas abaixo exigem `Authorization: Bearer ...` e `X-Casa-ID`.
+
+- `POST /api/v1/itens` recebe `nome` (string obrigatório), `quantidade` (inteiro obrigatório >= 1) e `preco` (decimal opcional/nulo >= 0). Cria `comprado: false` por padrão.
+- `GET /api/v1/itens?cursor=<cursor>` devolve no máximo 20 itens, ordenados por `created_at DESC, id DESC`.
+- Resposta: `{ "data": [...], "meta": { "per_page": 20, "has_more": true, "next_cursor": "..." } }`. `next_cursor` é nulo na última página; sem cursor, a primeira página é retornada.
+- Cada item contém `id`, `nome`, `quantidade`, `preco`, `comprado`, `created_at` e `updated_at`.
+- Cursor ausente ou inválido não é tratado como primeira página: retorna `400` com `type: bad_request` e `error_code: cursor_invalid`.
+- Validação retorna `422` com `type: validation_error` e `error_code: validation_error`.
+
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+The Laravel framework is open-sourced software under the [MIT license](https://opensource.org/licenses/MIT).

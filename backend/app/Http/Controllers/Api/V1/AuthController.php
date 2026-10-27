@@ -44,6 +44,9 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth')->plainTextToken;
 
+        // Garante que o usuário tenha um registro de Pessoa (evita null em rotas de casa/convite).
+        $user->pessoa()->firstOrCreate([]);
+
         return response()->json(['data' => [
             'user' => $this->userData($user),
             'token' => $token,

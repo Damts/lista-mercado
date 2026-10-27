@@ -24,7 +24,8 @@ class CasaController extends Controller
     public function store(StoreCasaRequest $request): JsonResponse
     {
         $casa = Casa::create($request->validated());
-        $request->user()->pessoa->casas()->attach($casa->id);
+        $pessoa = $request->user()->pessoa()->firstOrCreate([]);
+        $pessoa->casas()->attach($casa->id);
         Audit::record($request->user()->id, 'casa.created', Casa::class, $casa->id, $casa->id, [
             'nome' => $casa->nome,
         ]);
@@ -37,7 +38,15 @@ class CasaController extends Controller
         $casaModel = Casa::query()
             ->whereKey($casa)
             ->whereHas('pessoas.user', fn ($query) => $query->whereKey($request->user()->id))
-            ->firstOrFail(['id', 'nome', 'created_at']);
+            ->first(['id', 'nome', 'created_at']);
+
+        if ($casaModel === null) {
+            return response()->json([
+                'message' => 'Recurso não encontrado.',
+                'type' => 'not_found',
+                'error_code' => 'house_not_found',
+            ], 404);
+        }
 
         return response()->json(['data' => $casaModel]);
     }
