@@ -79,6 +79,30 @@ class ItemTest extends TestCase
             ->assertJsonPath('type', 'house_context_required');
     }
 
+    public function test_item_contract_exposes_ok_empty_and_house_error_states(): void
+    {
+        $token = $this->register('owner@example.com');
+        $houseId = $this->createHouse($token, 'Casa');
+
+        $this->asHouse($token, $houseId)
+            ->getJson('/api/v1/casa-atual')
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['id', 'nome', 'created_at']]);
+
+        $this->asHouse($token, $houseId)
+            ->getJson('/api/v1/itens')
+            ->assertOk()
+            ->assertJsonPath('data', [])
+            ->assertJsonStructure(['data']);
+
+        $this->withToken($token)
+            ->withHeader('X-Casa-ID', '999999')
+            ->getJson('/api/v1/itens')
+            ->assertNotFound()
+            ->assertJsonPath('error_code', 'house_not_found')
+            ->assertJsonMissingPath('data');
+    }
+
     private function asHouse(string $token, int $houseId): self
     {
         return $this->withToken($token)->withHeader('X-Casa-ID', (string) $houseId);

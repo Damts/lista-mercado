@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'message' => 'Os dados enviados são inválidos.',
                     'type' => 'validation_error',
+                    'error_code' => 'validation_error',
                     'errors' => $exception->errors(),
                 ], 422);
             }
@@ -33,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'message' => 'Recurso não encontrado.',
                     'type' => 'not_found',
+                    'error_code' => 'resource_not_found',
                 ], 404);
             }
         });
@@ -42,6 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'message' => 'Autenticação necessária.',
                     'type' => 'unauthenticated',
+                    'error_code' => 'unauthenticated',
                 ], 401);
             }
         });
@@ -53,6 +56,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'message' => 'Ocorreu um erro interno.',
                     'type' => 'internal_error',
+                    'error_code' => 'internal_error',
                 ], 500);
             }
         });

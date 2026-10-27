@@ -37,7 +37,15 @@ class CasaController extends Controller
         $casaModel = Casa::query()
             ->whereKey($casa)
             ->whereHas('pessoas.user', fn ($query) => $query->whereKey($request->user()->id))
-            ->firstOrFail(['id', 'nome', 'created_at']);
+            ->first(['id', 'nome', 'created_at']);
+
+        if ($casaModel === null) {
+            return response()->json([
+                'message' => 'Recurso não encontrado.',
+                'type' => 'not_found',
+                'error_code' => 'house_not_found',
+            ], 404);
+        }
 
         return response()->json(['data' => $casaModel]);
     }

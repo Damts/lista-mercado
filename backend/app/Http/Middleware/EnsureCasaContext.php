@@ -16,6 +16,7 @@ class EnsureCasaContext
             return response()->json([
                 'message' => 'O header X-Casa-ID é obrigatório.',
                 'type' => 'house_context_required',
+                'error_code' => 'house_context_required',
             ], 400);
         }
 
@@ -28,6 +29,7 @@ class EnsureCasaContext
             return response()->json([
                 'message' => 'Recurso não encontrado.',
                 'type' => 'not_found',
+                'error_code' => 'house_not_found',
             ], 404);
         }
 
