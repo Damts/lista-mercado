@@ -39,6 +39,16 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\BadRequestHttpException $exception, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => $exception->getMessage() ?: 'Requisição inválida.',
+                    'type' => 'bad_request',
+                    'error_code' => 'cursor_invalid',
+                ], 400);
+            }
+        });
+
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $exception, \Illuminate\Http\Request $request) {
             if ($request->is('api/*')) {
                 return response()->json([
