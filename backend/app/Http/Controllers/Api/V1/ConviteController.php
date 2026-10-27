@@ -73,7 +73,7 @@ class ConviteController extends Controller
                 ])->status(422);
             }
 
-            $pessoa = $request->user()->pessoa()->firstOrFail();
+            $pessoa = $request->user()->pessoa()->firstOrCreate([]);
             if ($pessoa->casas()->whereKey($invite->casa_id)->exists()) {
                 throw ValidationException::withMessages([
                     'codigo' => ['A conta já pertence a esta casa.'],

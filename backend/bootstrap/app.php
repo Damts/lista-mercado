@@ -49,6 +49,16 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        $exceptions->render(function (\Symfony\Component\Routing\Exception\RouteNotFoundException $exception, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Autenticação necessária.',
+                    'type' => 'unauthenticated',
+                    'error_code' => 'unauthenticated',
+                ], 401);
+            }
+        });
+
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $exception, \Illuminate\Http\Request $request) {
             if ($request->is('api/*')) {
                 return response()->json([

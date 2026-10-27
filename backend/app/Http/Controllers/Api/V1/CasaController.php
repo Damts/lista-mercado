@@ -24,7 +24,8 @@ class CasaController extends Controller
     public function store(StoreCasaRequest $request): JsonResponse
     {
         $casa = Casa::create($request->validated());
-        $request->user()->pessoa->casas()->attach($casa->id);
+        $pessoa = $request->user()->pessoa()->firstOrCreate([]);
+        $pessoa->casas()->attach($casa->id);
         Audit::record($request->user()->id, 'casa.created', Casa::class, $casa->id, $casa->id, [
             'nome' => $casa->nome,
         ]);
