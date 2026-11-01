@@ -9,7 +9,7 @@ class Item extends Model
 {
     protected $table = 'itens';
 
-    protected $fillable = ['casa_id', 'lista_id', 'nome', 'nome_normalizado', 'quantidade', 'medida', 'preco', 'comprado'];
+    protected $fillable = ['casa_id', 'lista_id', 'nome', 'nome_normalizado', 'quantidade', 'medida', 'preco', 'preco_anterior', 'comprado'];
 
     protected function casts(): array
     {
@@ -17,6 +17,7 @@ class Item extends Model
             'quantidade' => 'integer',
             'medida' => 'string',
             'preco' => 'decimal:2',
+            'preco_anterior' => 'decimal:2',
             'comprado' => 'boolean',
         ];
     }
