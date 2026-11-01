@@ -8,8 +8,15 @@ class StoreItemRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
+        $data = [];
         if ($this->has('nome')) {
-            $this->merge(['nome' => trim((string) $this->input('nome'))]);
+            $data['nome'] = trim((string) $this->input('nome'));
+        }
+        if ($this->has('medida')) {
+            $data['medida'] = mb_strtolower(trim((string) $this->input('medida')));
+        }
+        if ($data !== []) {
+            $this->merge($data);
         }
     }
 
@@ -23,6 +30,7 @@ class StoreItemRequest extends FormRequest
         return [
             'nome' => ['required', 'string', 'max:120'],
             'quantidade' => ['required', 'integer', 'min:1'],
+            'medida' => ['sometimes', 'string', 'in:un,g,kg,ml,l'],
             'preco' => ['sometimes', 'nullable', 'numeric', 'min:0'],
         ];
     }

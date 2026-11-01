@@ -17,6 +17,7 @@ Map<String, dynamic> _item(int id) => {
   'id': id,
   'nome': 'Item $id',
   'quantidade': id % 4 + 1,
+  'medida': 'un',
   'preco': id.isEven ? '12.50' : null,
   'comprado': false,
   'created_at': '2026-10-22T12:00:00.000000Z',

@@ -60,9 +60,11 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 Todas as rotas abaixo exigem `Authorization: Bearer ...` e `X-Casa-ID`.
 
 - `POST /api/v1/itens` recebe `nome` (string obrigatório), `quantidade` (inteiro obrigatório >= 1) e `preco` (decimal opcional/nulo >= 0). Cria `comprado: false` por padrão.
-- `GET /api/v1/itens?cursor=<cursor>` devolve no máximo 20 itens, ordenados por `created_at DESC, id DESC`.
+- `GET /api/v1/itens?cursor=<cursor>` devolve no máximo 20 itens, ordenados por `updated_at DESC, id DESC`; o cursor carrega `updated_at + id`.
 - Resposta: `{ "data": [...], "meta": { "per_page": 20, "has_more": true, "next_cursor": "..." } }`. `next_cursor` é nulo na última página; sem cursor, a primeira página é retornada.
-- Cada item contém `id`, `nome`, `quantidade`, `preco`, `comprado`, `created_at` e `updated_at`.
+- Cada item contém `id`, `nome`, `quantidade`, `medida`, `preco`, `comprado`, `created_at` e `updated_at`; `medida` é uma de `un`, `g`, `kg`, `ml`, `l`.
+- `POST /api/v1/itens` aceita `medida` opcional e usa `un` por padrão.
+- `PATCH /api/v1/itens/{id}` aceita atualização parcial de `nome`, `quantidade`, `medida`, `preco` e `comprado`, e retorna `200` com o item atualizado. A edição atualiza `updated_at` e move o item para o topo.
 - Cursor ausente ou inválido não é tratado como primeira página: retorna `400` com `type: bad_request` e `error_code: cursor_invalid`.
 - Validação retorna `422` com `type: validation_error` e `error_code: validation_error`.
 

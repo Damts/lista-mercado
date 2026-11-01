@@ -18,6 +18,16 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (\App\Exceptions\InvalidBoughtFilterException $exception, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => $exception->getMessage(),
+                    'type' => 'bad_request',
+                    'error_code' => 'bought_filter_invalid',
+                ], 400);
+            }
+        });
+
         $exceptions->render(function (\Illuminate\Validation\ValidationException $exception, \Illuminate\Http\Request $request) {
             if ($request->is('api/*')) {
                 return response()->json([
