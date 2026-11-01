@@ -203,4 +203,286 @@ void main() {
     expect(find.text('Feijão'), findsOneWidget);
     expect(cursors, [null, 'cursor-1']);
   });
+
+  testWidgets('copia do último mês anterior com itens para o destino vazio', (
+    tester,
+  ) async {
+    var destinationReads = 0;
+    String? copyPath;
+    final client = MockClient((request) async {
+      expect(request.headers['x-casa-id'], '12');
+      if (request.url.path == '/api/v1/casas/12/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 100,
+              'casa_id': 12,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+            {
+              'id': 99,
+              'casa_id': 12,
+              'ano': 2026,
+              'mes': 10,
+              'fechado_em': '2026-11-01',
+            },
+            {
+              'id': 88,
+              'casa_id': 12,
+              'ano': 2026,
+              'mes': 8,
+              'fechado_em': '2026-09-01',
+            },
+            {
+              'id': 77,
+              'casa_id': 12,
+              'ano': 2026,
+              'mes': 7,
+              'fechado_em': '2026-08-01',
+            },
+          ],
+        });
+      }
+      if (request.url.path == '/api/v1/listas/99/itens') {
+        return _json({
+          'data': [],
+          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+        });
+      }
+      if (request.url.path == '/api/v1/listas/88/itens') {
+        return _json({
+          'data': [_item()],
+          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+        });
+      }
+      if (request.url.path == '/api/v1/listas/100/itens') {
+        destinationReads++;
+        return _json({
+          'data': destinationReads == 1 ? [] : [_item()],
+          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+        });
+      }
+      if (request.method == 'POST') {
+        copyPath = request.url.path;
+        expect(request.body, '{}');
+        return http.Response('', 204);
+      }
+      return _json({'message': 'Unexpected request'}, status: 500);
+    });
+    final state = await _state(client);
+    await tester.pumpWidget(
+      _wrap(state, const MonthlyItemsPage(houseId: 12, listId: 100)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Copiando de agosto/2026'), findsOneWidget);
+    expect(find.text('Esta lista está vazia'), findsOneWidget);
+    await tester.tap(find.text('Copiar itens para este mês'));
+    await tester.pumpAndSettle();
+
+    expect(copyPath, '/api/v1/listas/100/copiar-de/88');
+    expect(find.text('Arroz'), findsOneWidget);
+    expect(find.text('Itens copiados para a lista deste mês.'), findsOneWidget);
+  });
+
+  testWidgets(
+    'sem mês anterior com itens, a cópia fica desabilitada com motivo',
+    (tester) async {
+      var copyRequests = 0;
+      final client = MockClient((request) async {
+        if (request.headers['x-casa-id'] != '12') {
+          return _json({'message': 'House context missing'}, status: 400);
+        }
+        if (request.url.path == '/api/v1/casas/12/listas') {
+          return _json({
+            'data': [
+              {'id': 100, 'ano': 2026, 'mes': 11, 'fechado_em': null},
+              {'id': 99, 'ano': 2026, 'mes': 10, 'fechado_em': '2026-11-01'},
+            ],
+          });
+        }
+        if (request.url.path == '/api/v1/listas/99/itens' ||
+            request.url.path == '/api/v1/listas/100/itens') {
+          return _json({
+            'data': [],
+            'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+          });
+        }
+        if (request.method == 'POST') copyRequests++;
+        return _json({'message': 'Unexpected request'}, status: 500);
+      });
+      final state = await _state(client);
+      await tester.pumpWidget(
+        _wrap(state, const MonthlyItemsPage(houseId: 12, listId: 100)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Não há uma lista anterior com itens para copiar.'),
+        findsOneWidget,
+      );
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Copiar itens para este mês'),
+      );
+      expect(button.onPressed, isNull);
+      expect(copyRequests, 0);
+    },
+  );
+
+  testWidgets('destino não vazio desabilita cópia e explica o motivo', (
+    tester,
+  ) async {
+    var copyRequests = 0;
+    final client = MockClient((request) async {
+      expect(request.headers['x-casa-id'], '12');
+      if (request.url.path == '/api/v1/casas/12/listas') {
+        return _json({
+          'data': [
+            {'id': 100, 'ano': 2026, 'mes': 11, 'fechado_em': null},
+            {'id': 88, 'ano': 2026, 'mes': 8, 'fechado_em': '2026-09-01'},
+          ],
+        });
+      }
+      if (request.url.path == '/api/v1/listas/88/itens') {
+        return _json({
+          'data': [_item()],
+          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+        });
+      }
+      if (request.url.path == '/api/v1/listas/100/itens') {
+        return _json({
+          'data': [_item(name: 'Feijão')],
+          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+        });
+      }
+      if (request.method == 'POST') copyRequests++;
+      return _json({'message': 'Unexpected request'}, status: 500);
+    });
+    final state = await _state(client);
+    await tester.pumpWidget(
+      _wrap(state, const MonthlyItemsPage(houseId: 12, listId: 100)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'A cópia só fica disponível quando a lista deste mês está vazia.',
+      ),
+      findsOneWidget,
+    );
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Copiar itens para este mês'),
+    );
+    expect(button.onPressed, isNull);
+    expect(copyRequests, 0);
+  });
+
+  testWidgets('409 durante a cópia atualiza o destino e mostra conflito', (
+    tester,
+  ) async {
+    var destinationReads = 0;
+    final client = MockClient((request) async {
+      expect(request.headers['x-casa-id'], '12');
+      if (request.url.path == '/api/v1/casas/12/listas') {
+        return _json({
+          'data': [
+            {'id': 100, 'ano': 2026, 'mes': 11, 'fechado_em': null},
+            {'id': 88, 'ano': 2026, 'mes': 8, 'fechado_em': '2026-09-01'},
+          ],
+        });
+      }
+      if (request.url.path == '/api/v1/listas/88/itens') {
+        return _json({
+          'data': [_item()],
+          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+        });
+      }
+      if (request.url.path == '/api/v1/listas/100/itens') {
+        destinationReads++;
+        return _json({
+          'data': destinationReads == 1 ? [] : [_item(name: 'Feijão')],
+          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+        });
+      }
+      if (request.method == 'POST') {
+        return _json({
+          'message': 'A lista de destino já possui itens.',
+          'type': 'conflict',
+          'error_code': 'lista_nao_vazia',
+        }, status: 409);
+      }
+      return _json({'message': 'Unexpected request'}, status: 500);
+    });
+    final state = await _state(client);
+    await tester.pumpWidget(
+      _wrap(state, const MonthlyItemsPage(houseId: 12, listId: 100)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copiar itens para este mês'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Feijão'), findsOneWidget);
+    expect(
+      find.textContaining('A lista do mês já recebeu itens'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('falha ao verificar origem mostra retry acionável', (
+    tester,
+  ) async {
+    var sourceReads = 0;
+    final client = MockClient((request) async {
+      expect(request.headers['x-casa-id'], '12');
+      if (request.url.path == '/api/v1/casas/12/listas') {
+        return _json({
+          'data': [
+            {'id': 100, 'ano': 2026, 'mes': 11, 'fechado_em': null},
+            {'id': 88, 'ano': 2026, 'mes': 8, 'fechado_em': '2026-09-01'},
+          ],
+        });
+      }
+      if (request.url.path == '/api/v1/listas/88/itens') {
+        sourceReads++;
+        if (sourceReads == 1) {
+          return _json({'message': 'Temporarily unavailable'}, status: 500);
+        }
+        return _json({
+          'data': [_item()],
+          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+        });
+      }
+      if (request.url.path == '/api/v1/listas/100/itens') {
+        return _json({
+          'data': [],
+          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+        });
+      }
+      return _json({'message': 'Unexpected request'}, status: 500);
+    });
+    final state = await _state(client);
+    await tester.pumpWidget(
+      _wrap(state, const MonthlyItemsPage(houseId: 12, listId: 100)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Não foi possível verificar a lista de origem. Tente novamente.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Tentar verificar novamente'), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Copiar itens para este mês'),
+    );
+    expect(button.onPressed, isNull);
+
+    await tester.tap(find.text('Tentar verificar novamente'));
+    await tester.pumpAndSettle();
+    expect(find.text('Copiando de agosto/2026'), findsOneWidget);
+    expect(sourceReads, 2);
+  });
 }
