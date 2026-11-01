@@ -138,7 +138,7 @@ class ListaController extends Controller
         $value = $request->query('comprado');
         if ($value === null) return null;
         if (! in_array($value, ['true', 'false'], true)) {
-            throw ValidationException::withMessages(['comprado' => ['O filtro comprado deve ser true ou false.']]);
+            throw new \App\Exceptions\InvalidBoughtFilterException();
         }
         return $value === 'true';
     }
@@ -151,7 +151,7 @@ class ListaController extends Controller
 
     private function itemData(Item $item): array
     {
-        return $item->only(['id', 'nome', 'quantidade', 'medida', 'preco', 'comprado', 'created_at', 'updated_at']);
+        return $item->only(['id', 'nome', 'quantidade', 'medida', 'preco', 'preco_anterior', 'comprado', 'created_at', 'updated_at']);
     }
 
     private function encodeCursor(Item $item): string
