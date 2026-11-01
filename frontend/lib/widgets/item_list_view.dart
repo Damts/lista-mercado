@@ -127,6 +127,16 @@ class _ItemListViewState extends State<ItemListView> {
       );
     }
 
+    final pending = state.items.where((item) => !item.bought).toList();
+    final bought = state.items.where((item) => item.bought).toList();
+    final rows = <({String? header, Item? item})>[
+      (header: 'Pendentes (${pending.length})', item: null),
+      for (final item in pending) (header: null, item: item),
+      (header: 'Comprados (${bought.length})', item: null),
+      for (final item in bought) (header: null, item: item),
+      (header: null, item: null),
+    ];
+
     return RefreshIndicator(
       onRefresh: state.refreshItems,
       child: ListView.builder(
@@ -134,10 +144,20 @@ class _ItemListViewState extends State<ItemListView> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        itemCount: state.items.length + 1,
+        itemCount: rows.length,
         itemBuilder: (context, index) {
-          if (index < state.items.length) {
-            final item = state.items[index];
+          final row = rows[index];
+          if (row.header != null) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+              child: Text(
+                row.header!,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            );
+          }
+          final item = row.item;
+          if (item != null) {
             return _ItemCard(
               item: item,
               onToggle: () => _toggle(item),
@@ -212,7 +232,9 @@ class _ItemCard extends StatelessWidget {
       leading: Checkbox(
         value: item.bought,
         onChanged: (_) => onToggle(),
-        semanticLabel: 'Marcar ${item.name} como comprado',
+        semanticLabel: item.bought
+            ? 'Desmarcar ${item.name} como comprado'
+            : 'Marcar ${item.name} como comprado',
       ),
       title: Text(
         item.name,

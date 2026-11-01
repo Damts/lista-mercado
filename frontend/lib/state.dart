@@ -23,6 +23,9 @@ class AppState extends ChangeNotifier {
   String? itemsError;
   int _itemsGeneration = 0;
   final Set<String> _usedCursors = {};
+  final Set<int> _pendingBoughtToggles = {};
+  final Map<int, bool> _queuedBoughtValues = {};
+  final Map<int, Item> _boughtToggleOriginals = {};
 
   AppState(this.api);
 
@@ -343,13 +346,51 @@ class AppState extends ChangeNotifier {
   Future<void> toggle(Item item) async {
     final houseId = activeHouse?.id;
     if (houseId == null) return;
-    final response = await api.request(
-      'PATCH',
-      '/v1/itens/${item.id}',
-      body: {'comprado': !item.bought},
-      houseId: houseId,
-    );
-    _replaceUpdatedItem(Item.fromJson(response['data']));
+    final current = items.where((current) => current.id == item.id).firstOrNull;
+    if (current == null) return;
+
+    final nextBought = !current.bought;
+    _boughtToggleOriginals.putIfAbsent(item.id, () => current);
+    _queuedBoughtValues[item.id] = nextBought;
+    _replaceItemLocally(current.copyWith(bought: nextBought));
+    notifyListeners();
+
+    if (!_pendingBoughtToggles.add(item.id)) return;
+    try {
+      while (_queuedBoughtValues.containsKey(item.id)) {
+        final requestedBought = _queuedBoughtValues.remove(item.id)!;
+        final response = await api.request(
+          'PATCH',
+          '/v1/itens/${item.id}',
+          body: {'comprado': requestedBought},
+          houseId: houseId,
+        );
+        final updated = Item.fromJson(response['data']);
+        _replaceUpdatedItem(updated);
+        if (_queuedBoughtValues.containsKey(item.id)) {
+          final latest = items.firstWhere((current) => current.id == item.id);
+          _replaceItemLocally(
+            latest.copyWith(bought: _queuedBoughtValues[item.id]),
+          );
+          notifyListeners();
+        }
+      }
+      _boughtToggleOriginals.remove(item.id);
+    } catch (_) {
+      final original = _boughtToggleOriginals.remove(item.id);
+      _queuedBoughtValues.remove(item.id);
+      if (original != null) _replaceItemLocally(original);
+      notifyListeners();
+      rethrow;
+    } finally {
+      _pendingBoughtToggles.remove(item.id);
+    }
+  }
+
+  void _replaceItemLocally(Item replacement) {
+    items = items
+        .map((current) => current.id == replacement.id ? replacement : current)
+        .toList(growable: false);
   }
 
   Future<Item> updateItem({

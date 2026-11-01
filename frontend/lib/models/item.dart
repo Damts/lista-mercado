@@ -17,6 +17,16 @@ class Item {
     required this.updatedAt,
   });
 
+  Item copyWith({bool? bought}) => Item(
+    id: id,
+    name: name,
+    quantity: quantity,
+    measure: measure,
+    price: price,
+    bought: bought ?? this.bought,
+    updatedAt: updatedAt,
+  );
+
   factory Item.fromJson(Map<String, dynamic> json) => Item(
     id: (json['id'] as num).toInt(),
     name: json['nome'] as String,
