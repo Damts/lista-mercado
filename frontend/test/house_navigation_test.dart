@@ -31,6 +31,13 @@ void main() {
           },
         });
       }
+      if (request.url.path == '/api/v1/itens' &&
+          request.url.queryParameters['comprado'] == 'true') {
+        return _json({
+          'data': [],
+          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
+        });
+      }
       if (request.url.path == '/api/v1/itens') {
         return _json({
           'data': [],
@@ -64,6 +71,6 @@ void main() {
 
     expect(state.activeHouse?.name, 'Casa carregada pela API');
     expect(find.text('Casa carregada pela API'), findsOneWidget);
-    expect(find.text('Sua lista está vazia'), findsOneWidget);
+    expect(find.text('Nenhum item pendente'), findsOneWidget);
   });
 }

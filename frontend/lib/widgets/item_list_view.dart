@@ -6,45 +6,51 @@ import 'edit_item_dialog.dart';
 
 class ItemListView extends StatefulWidget {
   const ItemListView({super.key});
-
   @override
   State<ItemListView> createState() => _ItemListViewState();
 }
 
-class _ItemListViewState extends State<ItemListView> {
-  final ScrollController _scrollController = ScrollController();
-
+class _ItemListViewState extends State<ItemListView>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 2, vsync: this);
+  final _pendingScroll = ScrollController();
+  final _boughtScroll = ScrollController();
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_loadWhenNearEnd);
+    _pendingScroll.addListener(() => _loadWhenNearEnd(false));
+    _boughtScroll.addListener(() => _loadWhenNearEnd(true));
   }
 
   @override
   void dispose() {
-    _scrollController
-      ..removeListener(_loadWhenNearEnd)
-      ..dispose();
+    _tabs.dispose();
+    _pendingScroll.dispose();
+    _boughtScroll.dispose();
     super.dispose();
   }
 
-  void _loadWhenNearEnd() {
-    if (!_scrollController.hasClients) return;
+  void _loadWhenNearEnd(bool bought) {
+    final scroll = bought ? _boughtScroll : _pendingScroll;
+    if (!scroll.hasClients || scroll.position.extentAfter >= 240) return;
     final state = context.read<AppState>();
-    if (state.itemsError != null ||
-        state.itemsLoading ||
-        state.itemsLoadingMore ||
-        !state.hasMoreItems) {
+    if (bought
+        ? state.boughtItemsError != null ||
+              state.boughtLoading ||
+              state.boughtLoadingMore ||
+              !state.hasMoreBoughtItems
+        : state.itemsError != null ||
+              state.itemsLoading ||
+              state.itemsLoadingMore ||
+              !state.hasMoreItems) {
       return;
     }
-    if (_scrollController.position.extentAfter < 240) {
-      state.loadNextItems();
-    }
+    state.loadNextItems(bought: bought);
   }
 
-  void _scheduleFillViewport() {
+  void _fillViewport(bool bought) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _loadWhenNearEnd();
+      if (mounted) _loadWhenNearEnd(bought);
     });
   }
 
@@ -52,12 +58,15 @@ class _ItemListViewState extends State<ItemListView> {
     try {
       await context.read<AppState>().toggle(item);
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Não foi possível atualizar o item. Tente novamente.'),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Não foi possível atualizar o item. Tente novamente.',
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -68,14 +77,6 @@ class _ItemListViewState extends State<ItemListView> {
       builder: (_) => EditItemDialog(item: item, onSave: state.updateItem),
     );
     if (updated != null && mounted) {
-      if (_scrollController.hasClients) {
-        await _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-        );
-      }
-      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Item atualizado.')));
@@ -85,71 +86,135 @@ class _ItemListViewState extends State<ItemListView> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    _scheduleFillViewport();
-
     if (state.activeHouse == null) {
       return const Center(child: Text('Selecione uma casa para ver os itens.'));
     }
-    if (state.itemsLoading && state.items.isEmpty) {
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabs,
+          tabs: [
+            Tab(text: 'Pendentes (${state.items.length})'),
+            Tab(text: 'Comprados (${state.boughtItems.length})'),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabs,
+            children: [
+              _section(state, bought: false),
+              _section(state, bought: true),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _section(AppState state, {required bool bought}) {
+    final items = bought ? state.boughtItems : state.items;
+    final loading = bought ? state.boughtLoading : state.itemsLoading;
+    final loadingMore = bought
+        ? state.boughtLoadingMore
+        : state.itemsLoadingMore;
+    final hasMore = bought ? state.hasMoreBoughtItems : state.hasMoreItems;
+    final error = bought ? state.boughtItemsError : state.itemsError;
+    final scroll = bought ? _boughtScroll : _pendingScroll;
+    _fillViewport(bought);
+    Future<void> retry() => state.refreshItems();
+    if (loading && items.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(semanticsLabel: 'Carregando itens'),
       );
     }
-    if (state.itemsError != null && state.items.isEmpty) {
-      return _InitialError(
-        message: state.itemsError!,
-        onRetry: state.refreshItems,
-      );
+    if (error != null && items.isEmpty) {
+      return _InitialError(message: error, onRetry: retry);
     }
-    if (state.items.isEmpty) {
+    if (items.isEmpty) {
       return RefreshIndicator(
-        onRefresh: state.refreshItems,
+        onRefresh: retry,
         child: ListView(
-          controller: _scrollController,
+          key: ValueKey(bought ? 'bought-item-list' : 'pending-item-list'),
+          controller: scroll,
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 96),
-            Icon(Icons.shopping_basket_outlined, size: 48),
-            SizedBox(height: 12),
+          children: [
+            const SizedBox(height: 72),
+            Icon(
+              bought
+                  ? Icons.shopping_bag_outlined
+                  : Icons.shopping_basket_outlined,
+              size: 48,
+            ),
+            const SizedBox(height: 12),
             Center(
               child: Text(
-                'Sua lista está vazia',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                bought ? 'Nenhum item comprado' : 'Nenhum item pendente',
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            SizedBox(height: 4),
-            Center(child: Text('Adicione um item para começar.')),
-            SizedBox(height: 8),
-            Center(child: Text('Você chegou ao fim da lista.')),
-            SizedBox(height: 32),
+            const SizedBox(height: 4),
+            Center(
+              child: Text(
+                bought
+                    ? 'Os itens comprados aparecerão aqui.'
+                    : 'Adicione um item para começar.',
+              ),
+            ),
+            const SizedBox(height: 32),
           ],
         ),
       );
     }
-
     return RefreshIndicator(
-      onRefresh: state.refreshItems,
+      onRefresh: retry,
       child: ListView.builder(
-        key: const ValueKey('item-list'),
-        controller: _scrollController,
+        key: ValueKey(bought ? 'bought-item-list' : 'pending-item-list'),
+        controller: scroll,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        itemCount: state.items.length + 1,
+        itemCount: items.length + 1,
         itemBuilder: (context, index) {
-          if (index < state.items.length) {
-            final item = state.items[index];
+          if (index < items.length) {
+            final item = items[index];
             return _ItemCard(
               item: item,
               onToggle: () => _toggle(item),
               onTap: () => _edit(item),
             );
           }
-          return _PageFooter(
-            state: state,
-            onRetry: state.hasMoreItems
-                ? state.loadNextItems
-                : state.refreshItems,
-          );
+          if (loadingMore) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(
+                child: CircularProgressIndicator(
+                  semanticsLabel: 'Carregando mais itens',
+                ),
+              ),
+            );
+          }
+          if (error != null) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                children: [
+                  Text(error, textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => state.loadNextItems(bought: bought),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Tentar novamente'),
+                  ),
+                ],
+              ),
+            );
+          }
+          if (!hasMore) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: Text('Você chegou ao fim da lista.')),
+            );
+          }
+          return const SizedBox(height: 16);
         },
       ),
     );
@@ -159,9 +224,7 @@ class _ItemListViewState extends State<ItemListView> {
 class _InitialError extends StatelessWidget {
   final String message;
   final Future<void> Function() onRetry;
-
   const _InitialError({required this.message, required this.onRetry});
-
   @override
   Widget build(BuildContext context) => Center(
     child: Padding(
@@ -191,19 +254,14 @@ class _ItemCard extends StatelessWidget {
   final Item item;
   final VoidCallback onToggle;
   final VoidCallback onTap;
-
   const _ItemCard({
     required this.item,
     required this.onToggle,
     required this.onTap,
   });
-
-  String get _priceLabel {
-    final price = item.price;
-    if (price == null) return 'Preço não informado';
-    return 'R\$ ${price.replaceFirst('.', ',')}';
-  }
-
+  String get _priceLabel => item.price == null
+      ? 'Preço não informado'
+      : 'R\$ ${item.price!.replaceFirst('.', ',')}';
   @override
   Widget build(BuildContext context) => Card(
     child: ListTile(
@@ -212,7 +270,8 @@ class _ItemCard extends StatelessWidget {
       leading: Checkbox(
         value: item.bought,
         onChanged: (_) => onToggle(),
-        semanticLabel: 'Marcar ${item.name} como comprado',
+        semanticLabel:
+            'Marcar ${item.name} como ${item.bought ? 'pendente' : 'comprado'}',
       ),
       title: Text(
         item.name,
@@ -226,48 +285,4 @@ class _ItemCard extends StatelessWidget {
       subtitle: Text('${item.quantity} ${item.measure} · $_priceLabel'),
     ),
   );
-}
-
-class _PageFooter extends StatelessWidget {
-  final AppState state;
-  final Future<void> Function() onRetry;
-
-  const _PageFooter({required this.state, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    if (state.itemsLoadingMore) {
-      return const Padding(
-        padding: EdgeInsets.all(20),
-        child: Center(
-          child: CircularProgressIndicator(
-            semanticsLabel: 'Carregando mais itens',
-          ),
-        ),
-      );
-    }
-    if (state.itemsError != null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          children: [
-            Text(state.itemsError!, textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Tentar novamente'),
-            ),
-          ],
-        ),
-      );
-    }
-    if (!state.hasMoreItems) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: Text('Você chegou ao fim da lista.')),
-      );
-    }
-    return const SizedBox(height: 16);
-  }
 }

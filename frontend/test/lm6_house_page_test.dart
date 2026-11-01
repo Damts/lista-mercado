@@ -57,6 +57,10 @@ void main() {
             'data': {'id': 12, 'nome': 'Casa do contrato'},
           });
         }
+        if (request.url.path == '/api/v1/itens' &&
+            request.url.queryParameters['comprado'] == 'true') {
+          return _json(_page([]));
+        }
         if (request.url.path == '/api/v1/itens') {
           return _json(
             _page([
@@ -87,6 +91,10 @@ void main() {
       await tester.scrollUntilVisible(
         find.textContaining('1 un · Preço não informado'),
         200,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('pending-item-list')),
+          matching: find.byType(Scrollable),
+        ),
       );
       expect(find.textContaining('1 un · Preço não informado'), findsOneWidget);
       expect(find.byTooltip('Adicionar item'), findsOneWidget);
@@ -177,6 +185,10 @@ void main() {
       if (request.url.path == '/api/v1/casas/12') {
         return houseResponse.future;
       }
+      if (request.url.path == '/api/v1/itens' &&
+          request.url.queryParameters['comprado'] == 'true') {
+        return _json(_page([]));
+      }
       if (request.url.path == '/api/v1/itens') {
         return _json(_page([]));
       }
@@ -217,7 +229,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Casa carregada'), findsOneWidget);
-    expect(find.text('Sua lista está vazia'), findsOneWidget);
+    expect(find.text('Nenhum item pendente'), findsOneWidget);
   });
 
   testWidgets('404 de casa mostra erro e retry refaz GET /casas/{id}', (
@@ -245,6 +257,10 @@ void main() {
             'created_at': '2026-10-22T12:00:00.000000Z',
           },
         });
+      }
+      if (request.url.path == '/api/v1/itens' &&
+          request.url.queryParameters['comprado'] == 'true') {
+        return _json(_page([]));
       }
       if (request.url.path == '/api/v1/itens') {
         itemRequests++;
@@ -301,6 +317,10 @@ void main() {
           },
         });
       }
+      if (request.url.path == '/api/v1/itens' &&
+          request.url.queryParameters['comprado'] == 'true') {
+        return _json(_page([]));
+      }
       if (request.url.path == '/api/v1/itens') {
         itemRequests++;
         if (itemRequests == 1) {
@@ -331,6 +351,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(itemRequests, 2);
-    expect(find.text('Sua lista está vazia'), findsOneWidget);
+    expect(find.text('Nenhum item pendente'), findsOneWidget);
   });
 }

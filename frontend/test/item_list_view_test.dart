@@ -57,6 +57,10 @@ Future<AppState> _state(MockClient client) async {
 }
 
 http.Response? _commonResponse(http.Request request) {
+  if (request.url.path == '/api/v1/itens' &&
+      request.url.queryParameters['comprado'] == 'true') {
+    return _json(_page([], hasMore: false));
+  }
   if (request.url.path == '/api/v1/casas/7') {
     return _json({
       'data': {'id': 7, 'nome': 'Casa de teste'},
@@ -84,7 +88,8 @@ void main() {
       final common = _commonResponse(request);
       if (common != null) return common;
       if (request.url.path == '/api/v1/itens' &&
-          request.url.queryParameters.isEmpty) {
+          request.url.queryParameters['comprado'] == 'false' &&
+          request.url.queryParameters['cursor'] == null) {
         return _json(
           _page(
             List.generate(20, (index) => _item(index + 1)),
@@ -106,14 +111,20 @@ void main() {
     await tester.pumpWidget(_wrap(state));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -5000));
+    await tester.drag(
+      find.byKey(const ValueKey('pending-item-list')),
+      const Offset(0, -5000),
+    );
     await tester.pumpAndSettle();
 
     expect(state.items, hasLength(22));
     expect(state.items.map((item) => item.id).toSet(), hasLength(22));
     expect(cursorRequests, 1);
     expect(state.hasMoreItems, isFalse);
-    await tester.drag(find.byType(ListView), const Offset(0, -1000));
+    await tester.drag(
+      find.byKey(const ValueKey('pending-item-list')),
+      const Offset(0, -1000),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Você chegou ao fim da lista.'), findsOneWidget);
   });
@@ -131,7 +142,8 @@ void main() {
       final common = _commonResponse(request);
       if (common != null) return common;
       if (request.url.path == '/api/v1/itens' &&
-          request.url.queryParameters.isEmpty) {
+          request.url.queryParameters['comprado'] == 'false' &&
+          request.url.queryParameters['cursor'] == null) {
         return _json(
           _page(
             List.generate(20, (index) => _item(index + 1)),
@@ -151,7 +163,10 @@ void main() {
     await tester.pumpWidget(_wrap(state));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -5000));
+    await tester.drag(
+      find.byKey(const ValueKey('pending-item-list')),
+      const Offset(0, -5000),
+    );
     await tester.pumpAndSettle();
     expect(state.items, hasLength(20));
     expect(state.items.first.id, 1);
@@ -179,9 +194,9 @@ void main() {
     await tester.pumpWidget(_wrap(state));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sua lista está vazia'), findsOneWidget);
+    expect(find.text('Nenhum item pendente'), findsOneWidget);
     expect(find.text('Adicione um item para começar.'), findsOneWidget);
-    expect(find.text('Você chegou ao fim da lista.'), findsOneWidget);
+    expect(find.text('Você chegou ao fim da lista.'), findsNothing);
 
     final errorClient = MockClient((request) async {
       final common = _commonResponse(request);
@@ -207,7 +222,8 @@ void main() {
     final client = MockClient((request) async {
       final common = _commonResponse(request);
       if (common != null) return common;
-      if (request.url.queryParameters.isEmpty) {
+      if (request.url.queryParameters['comprado'] == 'false' &&
+          request.url.queryParameters['cursor'] == null) {
         return _json(
           _page(
             List.generate(20, (index) => _item(index + 1)),

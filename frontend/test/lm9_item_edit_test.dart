@@ -162,6 +162,11 @@ void main() {
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
+      if (request.url.path == '/api/v1/itens' &&
+          request.method == 'GET' &&
+          request.url.queryParameters['comprado'] == 'true') {
+        return _json(_page([]));
+      }
       if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
         return _json(_page(initialItems));
       }
@@ -241,13 +246,15 @@ void main() {
     });
     expect(houseIdHeader, '7');
     expect(find.text('Item atualizado.'), findsOneWidget);
-    expect(state.items.map((item) => item.id).toList(), [2, 3]);
-    expect(state.items.where((item) => item.id == 2), hasLength(1));
-    expect(state.items.first.name, 'Azeite extra');
-    expect(state.items.first.quantity, 500);
-    expect(state.items.first.measure, 'ml');
-    expect(state.items.first.price, '0.10');
-    expect(state.items.first.bought, isTrue);
+    expect(state.items.map((item) => item.id).toList(), [3]);
+    expect(state.boughtItems.map((item) => item.id).toList(), [2]);
+    expect(state.boughtItems.single.name, 'Azeite extra');
+    expect(state.boughtItems.single.quantity, 500);
+    expect(state.boughtItems.single.measure, 'ml');
+    expect(state.boughtItems.single.price, '0.10');
+    expect(state.boughtItems.single.bought, isTrue);
+    await tester.tap(find.text('Comprados (1)'));
+    await tester.pumpAndSettle();
     expect(find.textContaining('500 ml'), findsOneWidget);
   });
 
@@ -268,6 +275,11 @@ void main() {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
+      }
+      if (request.url.path == '/api/v1/itens' &&
+          request.method == 'GET' &&
+          request.url.queryParameters['comprado'] == 'true') {
+        return _json(_page([]));
       }
       if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
         return _json(_page([original]));
@@ -317,6 +329,11 @@ void main() {
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
+      if (request.url.path == '/api/v1/itens' &&
+          request.method == 'GET' &&
+          request.url.queryParameters['comprado'] == 'true') {
+        return _json(_page([]));
+      }
       if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
         return _json(_page([original]));
       }
@@ -362,6 +379,11 @@ void main() {
             'data': {'id': 7, 'nome': 'Casa de teste'},
           });
         }
+        if (request.url.path == '/api/v1/itens' &&
+            request.method == 'GET' &&
+            request.url.queryParameters['comprado'] == 'true') {
+          return _json(_page([]));
+        }
         if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
           return _json(_page([first, second]));
         }
@@ -387,9 +409,9 @@ void main() {
       await state.toggle(state.items.last);
 
       expect(patchBody, {'comprado': true});
-      expect(state.items.map((item) => item.id).toList(), [2, 1]);
-      expect(state.items.where((item) => item.id == 2), hasLength(1));
-      expect(state.items.first.bought, isTrue);
+      expect(state.items.map((item) => item.id).toList(), [1]);
+      expect(state.boughtItems.map((item) => item.id).toList(), [2]);
+      expect(state.boughtItems.single.bought, isTrue);
     },
   );
 
@@ -408,6 +430,11 @@ void main() {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
+      }
+      if (request.url.path == '/api/v1/itens' &&
+          request.method == 'GET' &&
+          request.url.queryParameters['comprado'] == 'true') {
+        return _json(_page([]));
       }
       if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
         return _json(_page([original]));
@@ -457,6 +484,11 @@ void main() {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
+      }
+      if (request.url.path == '/api/v1/itens' &&
+          request.method == 'GET' &&
+          request.url.queryParameters['comprado'] == 'true') {
+        return _json(_page([]));
       }
       if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
         return _json(_page([original]));
