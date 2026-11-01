@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ListaMensalTest extends TestCase
@@ -57,6 +58,67 @@ class ListaMensalTest extends TestCase
         $this->asHouse($token, $houseId)->patchJson('/api/v1/itens/'.$itemId, ['comprado' => true])
             ->assertStatus(409)->assertJsonPath('error_code', 'lista_fechada');
         $this->assertDatabaseHas('listas', ['id' => $october]);
+        $this->travelBack();
+    }
+
+    public function test_copying_last_non_empty_month_creates_clean_item_snapshots(): void
+    {
+        $token = $this->register('copy-owner@example.com');
+        $houseId = $this->createHouse($token, 'Casa da cópia');
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-31 23:00:00', 'America/Sao_Paulo'));
+        $originId = $this->asHouse($token, $houseId)->getJson('/api/v1/casas/'.$houseId.'/listas')->json('data.0.id');
+        foreach ([['Arroz', 2, 'kg', '18.90'], ['Leite', 3, 'l', '5.49'], ['Café', 1, 'un', '22.00'], ['Macarrão', 2, 'un', '7.50'], ['Sal', 1, 'kg', null]] as [$nome, $quantidade, $medida, $preco]) {
+            $this->asHouse($token, $houseId)->postJson('/api/v1/itens', compact('nome', 'quantidade', 'medida', 'preco'))->assertCreated();
+        }
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-01 00:00:00', 'America/Sao_Paulo'));
+        $destinationId = $this->asHouse($token, $houseId)->postJson('/api/v1/casas/'.$houseId.'/listas')->json('data.id');
+
+        $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/listas/'.$destinationId.'/copiar-de/'.$originId)
+            ->assertNoContent();
+
+        $this->assertDatabaseCount('itens', 10);
+        $this->assertDatabaseHas('itens', [
+            'lista_id' => $destinationId,
+            'nome' => 'Arroz',
+            'quantidade' => 2,
+            'medida' => 'kg',
+            'preco' => null,
+            'preco_anterior' => '18.90',
+            'comprado' => false,
+        ]);
+        $this->assertDatabaseHas('itens', [
+            'lista_id' => $destinationId,
+            'nome' => 'Sal',
+            'preco' => null,
+            'preco_anterior' => null,
+            'comprado' => false,
+        ]);
+        DB::table('itens')->where('lista_id', $originId)->where('nome', 'Arroz')->update(['preco' => '99.99']);
+        $this->assertDatabaseHas('itens', ['lista_id' => $destinationId, 'nome' => 'Arroz', 'preco_anterior' => '18.90']);
+        $this->travelBack();
+    }
+
+    public function test_copy_uses_the_latest_non_empty_list_even_when_intermediate_months_are_empty(): void
+    {
+        $token = $this->register('skip-month@example.com');
+        $houseId = $this->createHouse($token, 'Casa com lacuna');
+
+        $this->travelTo(CarbonImmutable::parse('2026-08-31 23:00:00', 'America/Sao_Paulo'));
+        $augustId = $this->asHouse($token, $houseId)->getJson('/api/v1/casas/'.$houseId.'/listas')->json('data.0.id');
+        $this->asHouse($token, $houseId)->postJson('/api/v1/itens', ['nome' => 'Feijão', 'quantidade' => 1, 'medida' => 'kg', 'preco' => '8.75'])->assertCreated();
+
+        $this->travelTo(CarbonImmutable::parse('2026-09-01 00:00:00', 'America/Sao_Paulo'));
+        $this->asHouse($token, $houseId)->postJson('/api/v1/casas/'.$houseId.'/listas')->assertCreated();
+        $this->travelTo(CarbonImmutable::parse('2026-10-01 00:00:00', 'America/Sao_Paulo'));
+        $this->asHouse($token, $houseId)->postJson('/api/v1/casas/'.$houseId.'/listas')->assertCreated();
+        $this->travelTo(CarbonImmutable::parse('2026-11-01 00:00:00', 'America/Sao_Paulo'));
+        $novemberId = $this->asHouse($token, $houseId)->postJson('/api/v1/casas/'.$houseId.'/listas')->json('data.id');
+
+        $this->asHouse($token, $houseId)->postJson('/api/v1/listas/'.$novemberId.'/copiar-de/'.$augustId)->assertNoContent();
+        $this->assertDatabaseHas('itens', ['lista_id' => $novemberId, 'nome' => 'Feijão', 'preco_anterior' => '8.75']);
         $this->travelBack();
     }
 
