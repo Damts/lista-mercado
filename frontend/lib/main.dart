@@ -6,6 +6,8 @@ import 'api.dart';
 import 'screens/houses_page.dart';
 import 'screens/list_page.dart';
 import 'screens/login_page.dart';
+import 'screens/monthly_lists_page.dart';
+import 'screens/monthly_items_page.dart';
 import 'screens/profile_page.dart';
 import 'screens/settings_page.dart';
 import 'state.dart';
@@ -51,6 +53,19 @@ class _AppState extends State<App> {
       GoRoute(path: '/login', builder: (_, _) => const LoginPage()),
       GoRoute(path: '/casas', builder: (_, _) => const HousesPage()),
       GoRoute(path: '/lista', builder: (_, _) => const ListPage()),
+      GoRoute(
+        path: '/casas/:houseId/listas',
+        builder: (_, state) => MonthlyListsPage(
+          houseId: int.parse(state.pathParameters['houseId']!),
+        ),
+      ),
+      GoRoute(
+        path: '/casas/:houseId/listas/:listId',
+        builder: (_, state) => MonthlyItemsPage(
+          houseId: int.parse(state.pathParameters['houseId']!),
+          listId: int.parse(state.pathParameters['listId']!),
+        ),
+      ),
       GoRoute(path: '/perfil', builder: (_, _) => const ProfilePage()),
       GoRoute(path: '/configuracoes', builder: (_, _) => const SettingsPage()),
     ],

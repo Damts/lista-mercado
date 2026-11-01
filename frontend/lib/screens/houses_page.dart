@@ -269,7 +269,7 @@ class _HousesState extends State<HousesPage> {
                   title: Text(house.name),
                   onTap: () {
                     state.selectHouse(house);
-                    context.go('/lista');
+                    context.go('/casas/${house.id}/listas');
                   },
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

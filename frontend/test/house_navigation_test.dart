@@ -37,6 +37,20 @@ void main() {
           'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
         });
       }
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        expect(request.headers['x-casa-id'], '7');
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 10,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       return http.Response('{}', 404);
     });
     SharedPreferences.setMockInitialValues({'auth_token': 'test-token'});
@@ -64,6 +78,6 @@ void main() {
 
     expect(state.activeHouse?.name, 'Casa carregada pela API');
     expect(find.text('Casa carregada pela API'), findsOneWidget);
-    expect(find.text('Sua lista está vazia'), findsOneWidget);
+    expect(find.text('Outubro de 2026'), findsOneWidget);
   });
 }
