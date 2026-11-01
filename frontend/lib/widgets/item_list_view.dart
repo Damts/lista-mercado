@@ -132,6 +132,16 @@ class _ItemListViewState extends State<ItemListView> {
       );
     }
 
+    final pending = state.items.where((item) => !item.bought).toList();
+    final bought = state.items.where((item) => item.bought).toList();
+    final rows = <_Row>[
+      if (pending.isNotEmpty) _Row.header('Pendentes (${pending.length})'),
+      for (final item in pending) _Row.item(item),
+      if (bought.isNotEmpty) _Row.header('Comprados (${bought.length})'),
+      for (final item in bought) _Row.item(item),
+      _Row.footer(),
+    ];
+
     return RefreshIndicator(
       onRefresh: state.refreshItems,
       child: ListView.builder(
@@ -139,29 +149,57 @@ class _ItemListViewState extends State<ItemListView> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        itemCount: state.items.length + 1,
+        itemCount: rows.length,
         itemBuilder: (context, index) {
-          if (index < state.items.length) {
-            final item = state.items[index];
+          final row = rows[index];
+          if (row.header != null) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+              child: Text(
+                row.header!,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            );
+          }
+          final item = row.item;
+          if (item != null) {
+            final toggleCallback = state.activeList?.isClosed == true
+                ? null
+                : () {
+                    _toggle(item);
+                  } as VoidCallback?;
             return _ItemCard(
               item: item,
-              onToggle: () => _toggle(item),
+              onToggle: toggleCallback,
               onTap: state.activeList?.isClosed == true
                   ? null
                   : () => _edit(item),
               readOnly: state.activeList?.isClosed == true,
             );
           }
-          return _PageFooter(
-            state: state,
-            onRetry: state.hasMoreItems
-                ? state.loadNextItems
-                : state.refreshItems,
-          );
+          if (row.isFooter) {
+            return _PageFooter(
+              state: state,
+              onRetry: state.hasMoreItems
+                  ? state.loadNextItems
+                  : state.refreshItems,
+            );
+          }
+          return const SizedBox.shrink();
         },
       ),
     );
   }
+}
+
+class _Row {
+  final String? header;
+  final Item? item;
+  final bool isFooter;
+  const _Row._({this.header, this.item, this.isFooter = false});
+  factory _Row.header(String text) => _Row._(header: text);
+  factory _Row.item(Item item) => _Row._(item: item);
+  factory _Row.footer() => const _Row._(isFooter: true);
 }
 
 class _InitialError extends StatelessWidget {
@@ -197,7 +235,7 @@ class _InitialError extends StatelessWidget {
 
 class _ItemCard extends StatelessWidget {
   final Item item;
-  final VoidCallback onToggle;
+  final VoidCallback? onToggle;
   final VoidCallback? onTap;
   final bool readOnly;
 
@@ -221,7 +259,7 @@ class _ItemCard extends StatelessWidget {
       onTap: onTap,
       leading: Checkbox(
         value: item.bought,
-        onChanged: readOnly ? null : (_) => onToggle(),
+        onChanged: readOnly || onToggle == null ? null : (_) => onToggle!(),
         semanticLabel: 'Marcar ${item.name} como comprado',
       ),
       title: Text(
