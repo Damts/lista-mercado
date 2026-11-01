@@ -22,4 +22,9 @@ class Casa extends Model
     {
         return $this->belongsToMany(Pessoa::class, 'pessoa_casa');
     }
+
+    public function listas(): HasMany
+    {
+        return $this->hasMany(Lista::class);
+    }
 }

@@ -9,7 +9,7 @@ class Item extends Model
 {
     protected $table = 'itens';
 
-    protected $fillable = ['casa_id', 'nome', 'nome_normalizado', 'quantidade', 'medida', 'preco', 'comprado'];
+    protected $fillable = ['casa_id', 'lista_id', 'nome', 'nome_normalizado', 'quantidade', 'medida', 'preco', 'comprado'];
 
     protected function casts(): array
     {
@@ -24,5 +24,10 @@ class Item extends Model
     public function casa(): BelongsTo
     {
         return $this->belongsTo(Casa::class);
+    }
+
+    public function lista(): BelongsTo
+    {
+        return $this->belongsTo(Lista::class);
     }
 }

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Exceptions\ListaFechadaException;
 use App\Http\Requests\StoreItemRequest;
 use App\Http\Requests\UpdateItemRequest;
 use App\Models\Audit;
 use App\Models\Casa;
 use App\Models\Item;
+use App\Services\ListaMensalService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -57,13 +59,14 @@ class ItemController extends Controller
         ]);
     }
 
-    public function store(StoreItemRequest $request): JsonResponse
+    public function store(StoreItemRequest $request, ListaMensalService $listas): JsonResponse
     {
         $casa = $this->context($request);
+        $lista = $listas->current($casa);
         $data = $request->validated();
         $normalizado = $this->normalize($data['nome']);
         $item = Item::query()
-            ->where('casa_id', $casa->id)
+            ->where('lista_id', $lista->id)
             ->where('nome_normalizado', $normalizado)
             ->first();
 
@@ -74,6 +77,7 @@ class ItemController extends Controller
         try {
             $item = Item::create([
                 'casa_id' => $casa->id,
+                'lista_id' => $lista->id,
                 'nome' => $data['nome'],
                 'nome_normalizado' => $normalizado,
                 'quantidade' => $data['quantidade'],
@@ -83,7 +87,7 @@ class ItemController extends Controller
             ]);
         } catch (QueryException) {
             $item = Item::query()
-                ->where('casa_id', $casa->id)
+                ->where('lista_id', $lista->id)
                 ->where('nome_normalizado', $normalizado)
                 ->firstOrFail();
 
@@ -111,12 +115,13 @@ class ItemController extends Controller
     public function update(UpdateItemRequest $request, int $item): JsonResponse
     {
         $itemModel = $this->itemInContext($request, $item);
+        $this->ensureOpen($itemModel);
         $data = $request->validated();
 
         if (array_key_exists('nome', $data)) {
             $normalizado = $this->normalize($data['nome']);
             $duplicate = Item::query()
-                ->where('casa_id', $itemModel->casa_id)
+                ->where('lista_id', $itemModel->lista_id)
                 ->where('nome_normalizado', $normalizado)
                 ->whereKeyNot($itemModel->id)
                 ->exists();
@@ -144,6 +149,7 @@ class ItemController extends Controller
     public function destroy(Request $request, int $item): Response
     {
         $itemModel = $this->itemInContext($request, $item);
+        $this->ensureOpen($itemModel);
         $before = $this->data($itemModel);
         $itemModel->delete();
         Audit::record($request->user()->id, 'item.deleted', Item::class, $itemModel->id, $itemModel->casa_id, [
@@ -165,6 +171,13 @@ class ItemController extends Controller
             ->whereKey($item)
             ->where('casa_id', $this->context($request)->id)
             ->firstOrFail();
+    }
+
+    private function ensureOpen(Item $item): void
+    {
+        if ($item->lista()->value('fechado_em') !== null) {
+            throw new ListaFechadaException('A lista está fechada.');
+        }
     }
 
     /** @return array{id: int, nome: string, quantidade: int, medida: string, preco: string|null, comprado: bool, created_at: mixed, updated_at: mixed} */
