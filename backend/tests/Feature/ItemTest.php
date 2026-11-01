@@ -116,7 +116,7 @@ class ItemTest extends TestCase
             ->assertJsonPath('error_code', 'cursor_invalid');
     }
 
-    public function test_items_can_be_filtered_by_bought_status_without_changing_the_default_listing(): void
+public function test_items_can_be_filtered_by_bought_status_without_changing_the_default_listing(): void
     {
         $token = $this->register('owner@example.com');
         $houseId = $this->createHouse($token, 'Casa');
@@ -183,6 +183,44 @@ class ItemTest extends TestCase
                 ->assertJsonPath('type', 'bad_request')
                 ->assertJsonPath('error_code', 'bought_filter_invalid');
         }
+
+public function test_repeated_identical_bought_toggle_is_idempotent_and_preserves_item_data(): void
+    {
+        $token = $this->register('owner@example.com');
+        $houseId = $this->createHouse($token, 'Casa');
+        $itemId = $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/itens', [
+                'nome' => 'Leite',
+                'quantidade' => 2,
+                'medida' => 'l',
+                'preco' => '8.50',
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        foreach (range(1, 2) as $_) {
+            $response = $this->asHouse($token, $houseId)
+                ->patchJson('/api/v1/itens/'.$itemId, ['comprado' => true])
+                ->assertOk();
+
+            $response->assertJsonPath('data.id', $itemId)
+                ->assertJsonPath('data.nome', 'Leite')
+                ->assertJsonPath('data.quantidade', 2)
+                ->assertJsonPath('data.medida', 'l')
+                ->assertJsonPath('data.preco', '8.50')
+                ->assertJsonPath('data.comprado', true);
+        }
+
+        $this->assertDatabaseCount('itens', 1);
+        $this->assertDatabaseHas('itens', [
+            'id' => $itemId,
+            'casa_id' => $houseId,
+            'nome' => 'Leite',
+            'quantidade' => 2,
+            'medida' => 'l',
+            'preco' => '8.50',
+            'comprado' => true,
+        ]);
     }
 
     public function test_patch_updates_all_fields_and_normalizes_measure(): void
