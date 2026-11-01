@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CasaController;
 use App\Http\Controllers\Api\V1\CasaContextController;
 use App\Http\Controllers\Api\V1\ItemController;
+use App\Http\Controllers\Api\V1\ListaController;
 use App\Http\Controllers\Api\V1\ConviteController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +33,9 @@ Route::prefix('v1')->group(function (): void {
             ->middleware('casa.context');
         Route::delete('itens/{item}', [ItemController::class, 'destroy'])
             ->middleware('casa.context');
+        Route::get('casas/{casa}/listas', [ListaController::class, 'index'])->middleware('casa.context');
+        Route::post('casas/{casa}/listas', [ListaController::class, 'store'])->middleware('casa.context');
+        Route::get('listas/{lista}/itens', [ListaController::class, 'itens'])->middleware('casa.context');
         Route::post('casas', [CasaController::class, 'store']);
         Route::get('casas/{casa}', [CasaController::class, 'show']);
         Route::post('casas/{casa}/convites', [ConviteController::class, 'store']);

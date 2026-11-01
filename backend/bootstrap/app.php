@@ -28,6 +28,16 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        $exceptions->render(function (\App\Exceptions\ListaFechadaException $exception, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'A lista está fechada.',
+                    'type' => 'conflict',
+                    'error_code' => 'lista_fechada',
+                ], 409);
+            }
+        });
+
         $exceptions->render(function (\Illuminate\Validation\ValidationException $exception, \Illuminate\Http\Request $request) {
             if ($request->is('api/*')) {
                 return response()->json([
