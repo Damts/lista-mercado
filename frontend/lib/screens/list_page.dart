@@ -5,6 +5,7 @@ import '../state.dart';
 import '../models/monthly_list.dart';
 import '../widgets/add_item_dialog.dart';
 import '../widgets/item_list_view.dart';
+import '../widgets/monthly_list_copy_card.dart';
 
 class ListPage extends StatelessWidget {
   const ListPage({super.key});
@@ -111,6 +112,15 @@ class ListPage extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        if (!state.activeList!.isClosed)
+          MonthlyListCopyCard(
+            key: ValueKey('copy-${state.activeList!.id}'),
+            houseId: state.activeHouse!.id,
+            lists: state.monthlyLists,
+            destination: state.activeList!,
+            destinationHasItems: state.items.isNotEmpty,
+            onCopied: state.refreshItems,
           ),
         Expanded(child: ItemListView()),
       ],
