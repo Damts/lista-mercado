@@ -122,6 +122,31 @@ class ListaMensalTest extends TestCase
         $this->travelBack();
     }
 
+    public function test_second_copy_returns_conflict_without_duplicate_items_and_foreign_list_is_hidden(): void
+    {
+        $ownerToken = $this->register('copy-conflict@example.com');
+        $ownerHouse = $this->createHouse($ownerToken, 'Casa origem');
+        $foreignToken = $this->register('foreign-copy@example.com');
+        $foreignHouse = $this->createHouse($foreignToken, 'Casa externa');
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-31 23:00:00', 'America/Sao_Paulo'));
+        $originId = $this->asHouse($ownerToken, $ownerHouse)->getJson('/api/v1/casas/'.$ownerHouse.'/listas')->json('data.0.id');
+        $foreignOriginId = $this->asHouse($foreignToken, $foreignHouse)->getJson('/api/v1/casas/'.$foreignHouse.'/listas')->json('data.0.id');
+        $this->asHouse($ownerToken, $ownerHouse)->postJson('/api/v1/itens', ['nome' => 'Aveia', 'quantidade' => 1])->assertCreated();
+        $this->asHouse($foreignToken, $foreignHouse)->postJson('/api/v1/itens', ['nome' => 'Farinha', 'quantidade' => 1])->assertCreated();
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-01 00:00:00', 'America/Sao_Paulo'));
+        $destinationId = $this->asHouse($ownerToken, $ownerHouse)->postJson('/api/v1/casas/'.$ownerHouse.'/listas')->json('data.id');
+        $this->asHouse($ownerToken, $ownerHouse)->postJson('/api/v1/listas/'.$destinationId.'/copiar-de/'.$originId)->assertNoContent();
+
+        $this->asHouse($ownerToken, $ownerHouse)->postJson('/api/v1/listas/'.$destinationId.'/copiar-de/'.$originId)
+            ->assertStatus(409)->assertJsonPath('type', 'conflict')->assertJsonPath('error_code', 'lista_nao_vazia');
+        $this->assertDatabaseCount('itens', 3);
+        $this->asHouse($ownerToken, $ownerHouse)->postJson('/api/v1/listas/'.$destinationId.'/copiar-de/'.$foreignOriginId)->assertNotFound();
+        $this->assertDatabaseCount('itens', 3);
+        $this->travelBack();
+    }
+
     private function asHouse(string $token, int $houseId): self
     {
         return $this->withToken($token)->withHeader('X-Casa-ID', (string) $houseId);
