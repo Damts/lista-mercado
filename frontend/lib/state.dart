@@ -3,6 +3,7 @@ import 'api.dart';
 import 'models/house.dart';
 import 'models/item.dart';
 import 'models/item_page.dart';
+import 'models/monthly_list.dart';
 import 'models/user.dart';
 
 class AppState extends ChangeNotifier {
@@ -10,6 +11,10 @@ class AppState extends ChangeNotifier {
   User? user;
   List<House> houses = [];
   House? activeHouse;
+  List<MonthlyList> monthlyLists = [];
+  MonthlyList? activeList;
+  bool listsLoading = false;
+  String? listsError;
   List<Item> items = [];
   bool loading = true;
   String? error;
@@ -27,6 +32,38 @@ class AppState extends ChangeNotifier {
   AppState(this.api);
 
   bool get authenticated => api.token != null && user != null;
+  bool get canEditItems => activeList?.isClosed != true;
+
+  void markActiveListClosed() {
+    final current = activeList;
+    if (current == null || current.isClosed) return;
+    final closed = MonthlyList(
+      id: current.id,
+      houseId: current.houseId,
+      year: current.year,
+      month: current.month,
+      closedAt: DateTime.now(),
+    );
+    monthlyLists = monthlyLists
+        .map((list) => list.id == closed.id ? closed : list)
+        .toList(growable: false);
+    activeList = closed;
+    notifyListeners();
+  }
+
+  Future<dynamic> _writeRequest(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    required int houseId,
+  }) async {
+    try {
+      return await api.request(method, path, body: body, houseId: houseId);
+    } on ApiException catch (exception) {
+      if (exception.errorCode == 'lista_fechada') markActiveListClosed();
+      rethrow;
+    }
+  }
 
   Future<void> bootstrap() async {
     if (api.token == null) {
@@ -87,6 +124,10 @@ class AppState extends ChangeNotifier {
     user = null;
     houses = [];
     activeHouse = null;
+    monthlyLists = [];
+    activeList = null;
+    listsLoading = false;
+    listsError = null;
     _requestedHouse = null;
     houseLoading = false;
     houseError = null;
@@ -114,6 +155,8 @@ class AppState extends ChangeNotifier {
     if (activeHouse != null && !houses.any((x) => x.id == activeHouse!.id)) {
       _itemsGeneration++;
       activeHouse = null;
+      monthlyLists = [];
+      activeList = null;
       _requestedHouse = null;
       houseLoading = false;
       houseError = null;
@@ -142,6 +185,10 @@ class AppState extends ChangeNotifier {
   Future<void> _loadHouse(House house) async {
     final generation = ++_itemsGeneration;
     activeHouse = null;
+    monthlyLists = [];
+    activeList = null;
+    listsLoading = true;
+    listsError = null;
     items = [];
     houseLoading = true;
     houseError = null;
@@ -162,12 +209,7 @@ class AppState extends ChangeNotifier {
         houses = [...houses, loadedHouse];
       }
       houseLoading = false;
-      await _loadItemsPage(
-        generation,
-        loadedHouse.id,
-        cursor: null,
-        firstPage: true,
-      );
+      await loadMonthlyLists(generation);
     } catch (exception) {
       if (generation != _itemsGeneration) return;
       if (exception is ApiException && exception.status == 401) {
@@ -184,9 +226,75 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> refreshItems({bool silent = false}) async {
+  Future<void> loadMonthlyLists([int? expectedGeneration]) async {
     final houseId = activeHouse?.id;
     if (houseId == null) return;
+    final generation = expectedGeneration ?? ++_itemsGeneration;
+    listsLoading = true;
+    listsError = null;
+    notifyListeners();
+    try {
+      final response = await api.request(
+        'GET',
+        '/v1/casas/$houseId/listas',
+        houseId: houseId,
+      );
+      if (generation != _itemsGeneration || activeHouse?.id != houseId) return;
+      final rawLists = response['data'];
+      if (rawLists is! List) {
+        throw const FormatException('Resposta de listas mensais inválida.');
+      }
+      final loadedLists = rawLists
+          .map((entry) => MonthlyList.fromJson(entry as Map<String, dynamic>))
+          .toList(growable: false);
+      if (loadedLists.any((list) => list.houseId != houseId)) {
+        throw const FormatException('A lista não pertence à casa selecionada.');
+      }
+      monthlyLists = loadedLists;
+      activeList = monthlyLists.isEmpty ? null : monthlyLists.first;
+      listsLoading = false;
+      if (activeList != null) {
+        await _loadItemsPage(
+          generation,
+          activeList!.id,
+          cursor: null,
+          firstPage: true,
+        );
+      } else {
+        items = [];
+        itemsLoading = false;
+        notifyListeners();
+      }
+    } catch (exception) {
+      if (generation != _itemsGeneration || activeHouse?.id != houseId) return;
+      if (exception is ApiException && exception.status == 401) {
+        await clearSession();
+        return;
+      }
+      listsLoading = false;
+      listsError = _messageFor(exception);
+      items = [];
+      itemsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> selectMonthlyList(MonthlyList list) async {
+    if (!monthlyLists.any((candidate) => candidate.id == list.id)) return;
+    final generation = ++_itemsGeneration;
+    activeList = list;
+    items = [];
+    hasMoreItems = false;
+    nextItemsCursor = null;
+    itemsError = null;
+    _usedCursors.clear();
+    notifyListeners();
+    await _loadItemsPage(generation, list.id, cursor: null, firstPage: true);
+  }
+
+  Future<void> refreshItems({bool silent = false}) async {
+    final listId = activeList?.id;
+    if (listId == null) return;
     final generation = ++_itemsGeneration;
     hasMoreItems = false;
     nextItemsCursor = null;
@@ -195,13 +303,13 @@ class AppState extends ChangeNotifier {
     itemsError = null;
     _usedCursors.clear();
     if (!silent) notifyListeners();
-    await _loadItemsPage(generation, houseId, cursor: null, firstPage: true);
+    await _loadItemsPage(generation, listId, cursor: null, firstPage: true);
   }
 
   Future<void> loadNextItems() async {
-    final houseId = activeHouse?.id;
+    final listId = activeList?.id;
     final cursor = nextItemsCursor;
-    if (houseId == null ||
+    if (listId == null ||
         cursor == null ||
         !hasMoreItems ||
         itemsLoading ||
@@ -216,7 +324,7 @@ class AppState extends ChangeNotifier {
     }
     await _loadItemsPage(
       _itemsGeneration,
-      houseId,
+      listId,
       cursor: cursor,
       firstPage: false,
     );
@@ -224,7 +332,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> _loadItemsPage(
     int generation,
-    int houseId, {
+    int listId, {
     required String? cursor,
     required bool firstPage,
   }) async {
@@ -237,12 +345,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final path = cursor == null
-          ? '/v1/itens'
-          : '/v1/itens?cursor=${Uri.encodeQueryComponent(cursor)}';
-      final response = await api.request('GET', path, houseId: houseId);
+      final query = cursor == null
+          ? ''
+          : '?cursor=${Uri.encodeQueryComponent(cursor)}';
+      final response = await api.request(
+        'GET',
+        '/v1/listas/$listId/itens$query',
+        houseId: activeHouse?.id,
+      );
       final page = ItemPage.fromJson(response as Map<String, dynamic>);
-      if (generation != _itemsGeneration || activeHouse?.id != houseId) return;
+      if (generation != _itemsGeneration || activeList?.id != listId) return;
       if (page.hasMore &&
           (page.nextCursor == null || page.nextCursor!.isEmpty)) {
         throw const FormatException('A próxima página não informou um cursor.');
@@ -266,14 +378,14 @@ class AppState extends ChangeNotifier {
       hasMoreItems = page.hasMore;
       itemsError = null;
     } catch (exception) {
-      if (generation != _itemsGeneration || activeHouse?.id != houseId) return;
+      if (generation != _itemsGeneration || activeList?.id != listId) return;
       if (exception is ApiException && exception.status == 401) {
         await clearSession();
         return;
       }
       if (exception is ApiException && exception.status == 404) {
-        houses.removeWhere((house) => house.id == houseId);
-        activeHouse = null;
+        monthlyLists = monthlyLists.where((list) => list.id != listId).toList();
+        activeList = null;
         items = [];
         hasMoreItems = false;
         nextItemsCursor = null;
@@ -281,7 +393,7 @@ class AppState extends ChangeNotifier {
       }
       itemsError = _messageFor(exception);
     } finally {
-      if (generation == _itemsGeneration) {
+      if (generation == _itemsGeneration && activeList?.id == listId) {
         itemsLoading = false;
         itemsLoadingMore = false;
         notifyListeners();
@@ -328,10 +440,22 @@ class AppState extends ChangeNotifier {
     return house;
   }
 
+  void _ensureListEditable() {
+    if (!canEditItems) {
+      throw ApiException(
+        409,
+        'Esta lista está fechada e não pode ser alterada.',
+        'conflict',
+        'lista_fechada',
+      );
+    }
+  }
+
   Future<void> add(String name, {required int quantity, String? price}) async {
+    _ensureListEditable();
     final houseId = activeHouse?.id;
     if (houseId == null) return;
-    await api.request(
+    await _writeRequest(
       'POST',
       '/v1/itens',
       body: {'nome': name.trim(), 'quantidade': quantity, 'preco': price},
@@ -341,9 +465,10 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> toggle(Item item) async {
+    _ensureListEditable();
     final houseId = activeHouse?.id;
     if (houseId == null) return;
-    final response = await api.request(
+    final response = await _writeRequest(
       'PATCH',
       '/v1/itens/${item.id}',
       body: {'comprado': !item.bought},
@@ -360,9 +485,10 @@ class AppState extends ChangeNotifier {
     required String? price,
     required bool bought,
   }) async {
+    _ensureListEditable();
     final houseId = activeHouse?.id;
     if (houseId == null) throw StateError('Nenhuma casa selecionada.');
-    final response = await api.request(
+    final response = await _writeRequest(
       'PATCH',
       '/v1/itens/${item.id}',
       body: {
@@ -397,9 +523,10 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> remove(Item item) async {
+    _ensureListEditable();
     final houseId = activeHouse?.id;
     if (houseId == null) return;
-    await api.request('DELETE', '/v1/itens/${item.id}', houseId: houseId);
+    await _writeRequest('DELETE', '/v1/itens/${item.id}', houseId: houseId);
     items = items
         .where((current) => current.id != item.id)
         .toList(growable: false);

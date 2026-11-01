@@ -59,18 +59,26 @@ Future<AppState> _state(MockClient client) async {
   );
 }
 
-MockClient _client(List<Map<String, dynamic>> items) =>
-    MockClient((request) async {
-      if (request.url.path == '/api/v1/casas/7') {
-        return _json({
-          'data': {'id': 7, 'nome': 'Casa de teste'},
-        });
-      }
-      if (request.url.path == '/api/v1/itens') {
-        return _json(_page(items));
-      }
-      return _json({'message': 'Não encontrado'}, status: 404);
+MockClient _client(List<Map<String, dynamic>> items) => MockClient((
+  request,
+) async {
+  if (request.url.path == '/api/v1/casas/7/listas') {
+    return _json({
+      'data': [
+        {'id': 70, 'casa_id': 7, 'ano': 2026, 'mes': 11, 'fechado_em': null},
+      ],
     });
+  }
+  if (request.url.path == '/api/v1/casas/7') {
+    return _json({
+      'data': {'id': 7, 'nome': 'Casa de teste'},
+    });
+  }
+  if (request.url.path == '/api/v1/listas/70/itens') {
+    return _json(_page(items));
+  }
+  return _json({'message': 'Não encontrado'}, status: 404);
+});
 
 void main() {
   testWidgets('card mostra quantidade junto da medida do item', (tester) async {
@@ -157,12 +165,26 @@ void main() {
       updatedAt: '2026-10-27T12:02:00.000000Z',
     );
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.method == 'GET') {
         return _json(_page(initialItems));
       }
       if (request.url.path == '/api/v1/itens/2' && request.method == 'PATCH') {
@@ -264,12 +286,26 @@ void main() {
       updatedAt: '2026-10-27T12:01:00.000000Z',
     );
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.method == 'GET') {
         return _json(_page([original]));
       }
       if (request.url.path == '/api/v1/itens/1' && request.method == 'PATCH') {
@@ -312,12 +348,26 @@ void main() {
       updatedAt: '2026-10-27T12:01:00.000000Z',
     );
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.method == 'GET') {
         return _json(_page([original]));
       }
       if (request.method == 'PATCH') patchRequests++;
@@ -357,12 +407,26 @@ void main() {
         updatedAt: '2026-10-27T12:01:00.000000Z',
       );
       final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/casas/7/listas') {
+          return _json({
+            'data': [
+              {
+                'id': 70,
+                'casa_id': 7,
+                'ano': 2026,
+                'mes': 11,
+                'fechado_em': null,
+              },
+            ],
+          });
+        }
         if (request.url.path == '/api/v1/casas/7') {
           return _json({
             'data': {'id': 7, 'nome': 'Casa de teste'},
           });
         }
-        if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+        if (request.url.path == '/api/v1/listas/70/itens' &&
+            request.method == 'GET') {
           return _json(_page([first, second]));
         }
         if (request.url.path == '/api/v1/itens/2' &&
@@ -404,12 +468,26 @@ void main() {
       updatedAt: '2026-10-27T12:01:00.000000Z',
     );
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.method == 'GET') {
         return _json(_page([original]));
       }
       if (request.url.path == '/api/v1/itens/4' && request.method == 'PATCH') {
@@ -453,12 +531,26 @@ void main() {
       updatedAt: '2026-10-27T12:01:00.000000Z',
     );
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.method == 'GET') {
         return _json(_page([original]));
       }
       if (request.url.path == '/api/v1/itens/5' && request.method == 'PATCH') {

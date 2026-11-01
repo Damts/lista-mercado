@@ -57,6 +57,13 @@ Future<AppState> _state(MockClient client) async {
 }
 
 http.Response? _commonResponse(http.Request request) {
+  if (request.url.path == '/api/v1/casas/7/listas') {
+    return _json({
+      'data': [
+        {'id': 70, 'casa_id': 7, 'ano': 2026, 'mes': 11, 'fechado_em': null},
+      ],
+    });
+  }
   if (request.url.path == '/api/v1/casas/7') {
     return _json({
       'data': {'id': 7, 'nome': 'Casa de teste'},
@@ -83,7 +90,7 @@ void main() {
     final client = MockClient((request) async {
       final common = _commonResponse(request);
       if (common != null) return common;
-      if (request.url.path == '/api/v1/itens' &&
+      if (request.url.path == '/api/v1/listas/70/itens' &&
           request.url.queryParameters.isEmpty) {
         return _json(
           _page(
@@ -93,7 +100,7 @@ void main() {
           ),
         );
       }
-      if (request.url.path == '/api/v1/itens') {
+      if (request.url.path == '/api/v1/listas/70/itens') {
         expect(request.url.queryParameters['cursor'], 'opaque-cursor-1');
         expect(request.headers['x-casa-id'], '7');
         cursorRequests++;
@@ -130,7 +137,7 @@ void main() {
     final client = MockClient((request) async {
       final common = _commonResponse(request);
       if (common != null) return common;
-      if (request.url.path == '/api/v1/itens' &&
+      if (request.url.path == '/api/v1/listas/70/itens' &&
           request.url.queryParameters.isEmpty) {
         return _json(
           _page(

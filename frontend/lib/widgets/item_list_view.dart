@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../api.dart';
 import '../models/item.dart';
 import '../state.dart';
 import 'edit_item_dialog.dart';
@@ -51,11 +52,15 @@ class _ItemListViewState extends State<ItemListView> {
   Future<void> _toggle(Item item) async {
     try {
       await context.read<AppState>().toggle(item);
-    } catch (_) {
+    } catch (exception) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Não foi possível atualizar o item. Tente novamente.'),
+        SnackBar(
+          content: Text(
+            exception is ApiException && exception.errorCode == 'lista_fechada'
+                ? 'Este mês acabou de ser fechado. A lista agora é somente leitura.'
+                : 'Não foi possível atualizar o item. Tente novamente.',
+          ),
         ),
       );
     }
@@ -141,7 +146,10 @@ class _ItemListViewState extends State<ItemListView> {
             return _ItemCard(
               item: item,
               onToggle: () => _toggle(item),
-              onTap: () => _edit(item),
+              onTap: state.activeList?.isClosed == true
+                  ? null
+                  : () => _edit(item),
+              readOnly: state.activeList?.isClosed == true,
             );
           }
           return _PageFooter(
@@ -190,12 +198,14 @@ class _InitialError extends StatelessWidget {
 class _ItemCard extends StatelessWidget {
   final Item item;
   final VoidCallback onToggle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool readOnly;
 
   const _ItemCard({
     required this.item,
     required this.onToggle,
     required this.onTap,
+    required this.readOnly,
   });
 
   String get _priceLabel {
@@ -211,7 +221,7 @@ class _ItemCard extends StatelessWidget {
       onTap: onTap,
       leading: Checkbox(
         value: item.bought,
-        onChanged: (_) => onToggle(),
+        onChanged: readOnly ? null : (_) => onToggle(),
         semanticLabel: 'Marcar ${item.name} como comprado',
       ),
       title: Text(
