@@ -11,6 +11,13 @@ class AppState extends ChangeNotifier {
   List<House> houses = [];
   House? activeHouse;
   List<Item> items = [];
+  List<Item> boughtItems = [];
+  bool boughtLoading = false;
+  bool boughtLoadingMore = false;
+  bool hasMoreBoughtItems = false;
+  String? nextBoughtItemsCursor;
+  String? boughtItemsError;
+  final Set<String> _usedBoughtCursors = {};
   bool loading = true;
   String? error;
   bool houseLoading = false;
@@ -91,6 +98,13 @@ class AppState extends ChangeNotifier {
     houseLoading = false;
     houseError = null;
     items = [];
+    boughtItems = [];
+    boughtLoading = false;
+    boughtLoadingMore = false;
+    hasMoreBoughtItems = false;
+    nextBoughtItemsCursor = null;
+    boughtItemsError = null;
+    _usedBoughtCursors.clear();
     itemsLoading = false;
     itemsLoadingMore = false;
     hasMoreItems = false;
@@ -118,6 +132,13 @@ class AppState extends ChangeNotifier {
       houseLoading = false;
       houseError = null;
       items = [];
+      boughtItems = [];
+      boughtLoading = false;
+      boughtLoadingMore = false;
+      hasMoreBoughtItems = false;
+      nextBoughtItemsCursor = null;
+      boughtItemsError = null;
+      _usedBoughtCursors.clear();
       itemsLoading = false;
       itemsLoadingMore = false;
       hasMoreItems = false;
@@ -143,14 +164,21 @@ class AppState extends ChangeNotifier {
     final generation = ++_itemsGeneration;
     activeHouse = null;
     items = [];
+    boughtItems = [];
     houseLoading = true;
     houseError = null;
     itemsLoading = false;
+    boughtLoading = false;
     itemsLoadingMore = false;
+    boughtLoadingMore = false;
     hasMoreItems = false;
+    hasMoreBoughtItems = false;
     nextItemsCursor = null;
+    nextBoughtItemsCursor = null;
     itemsError = null;
+    boughtItemsError = null;
     _usedCursors.clear();
+    _usedBoughtCursors.clear();
     notifyListeners();
 
     try {
@@ -162,12 +190,21 @@ class AppState extends ChangeNotifier {
         houses = [...houses, loadedHouse];
       }
       houseLoading = false;
-      await _loadItemsPage(
-        generation,
-        loadedHouse.id,
-        cursor: null,
-        firstPage: true,
-      );
+      await Future.wait([
+        _loadItemsPage(
+          generation,
+          loadedHouse.id,
+          cursor: null,
+          firstPage: true,
+        ),
+        _loadItemsPage(
+          generation,
+          loadedHouse.id,
+          cursor: null,
+          firstPage: true,
+          bought: true,
+        ),
+      ]);
     } catch (exception) {
       if (generation != _itemsGeneration) return;
       if (exception is ApiException && exception.status == 401) {
@@ -188,29 +225,53 @@ class AppState extends ChangeNotifier {
     final houseId = activeHouse?.id;
     if (houseId == null) return;
     final generation = ++_itemsGeneration;
+    items = [];
+    boughtItems = [];
     hasMoreItems = false;
+    hasMoreBoughtItems = false;
     nextItemsCursor = null;
+    nextBoughtItemsCursor = null;
     itemsLoading = true;
-    itemsLoadingMore = false;
+    boughtLoading = true;
     itemsError = null;
+    boughtItemsError = null;
     _usedCursors.clear();
+    _usedBoughtCursors.clear();
     if (!silent) notifyListeners();
-    await _loadItemsPage(generation, houseId, cursor: null, firstPage: true);
+    await Future.wait([
+      _loadItemsPage(generation, houseId, cursor: null, firstPage: true),
+      _loadItemsPage(
+        generation,
+        houseId,
+        cursor: null,
+        firstPage: true,
+        bought: true,
+      ),
+    ]);
   }
 
-  Future<void> loadNextItems() async {
+  Future<void> loadNextItems({bool bought = false}) async {
     final houseId = activeHouse?.id;
-    final cursor = nextItemsCursor;
+    final cursor = bought ? nextBoughtItemsCursor : nextItemsCursor;
+    final hasMore = bought ? hasMoreBoughtItems : hasMoreItems;
+    final loading = bought ? boughtLoading : itemsLoading;
+    final loadingMore = bought ? boughtLoadingMore : itemsLoadingMore;
+    final usedCursors = bought ? _usedBoughtCursors : _usedCursors;
     if (houseId == null ||
         cursor == null ||
-        !hasMoreItems ||
-        itemsLoading ||
-        itemsLoadingMore) {
+        !hasMore ||
+        loading ||
+        loadingMore) {
       return;
     }
-    if (_usedCursors.contains(cursor)) {
-      itemsError =
-          'A paginação retornou um cursor repetido. Tente atualizar a lista.';
+    if (usedCursors.contains(cursor)) {
+      if (bought) {
+        boughtItemsError =
+            'A paginação retornou um cursor repetido. Tente atualizar a lista.';
+      } else {
+        itemsError =
+            'A paginação retornou um cursor repetido. Tente atualizar a lista.';
+      }
       notifyListeners();
       return;
     }
@@ -219,6 +280,7 @@ class AppState extends ChangeNotifier {
       houseId,
       cursor: cursor,
       firstPage: false,
+      bought: bought,
     );
   }
 
@@ -227,19 +289,30 @@ class AppState extends ChangeNotifier {
     int houseId, {
     required String? cursor,
     required bool firstPage,
+    bool bought = false,
   }) async {
-    if (firstPage) {
-      itemsLoading = true;
+    final sectionItems = bought ? boughtItems : items;
+    final usedCursors = bought ? _usedBoughtCursors : _usedCursors;
+    if (bought) {
+      if (firstPage) {
+        boughtLoading = true;
+      } else {
+        boughtLoadingMore = true;
+      }
+      boughtItemsError = null;
     } else {
-      itemsLoadingMore = true;
+      if (firstPage) {
+        itemsLoading = true;
+      } else {
+        itemsLoadingMore = true;
+      }
+      itemsError = null;
     }
-    itemsError = null;
     notifyListeners();
-
     try {
-      final path = cursor == null
-          ? '/v1/itens'
-          : '/v1/itens?cursor=${Uri.encodeQueryComponent(cursor)}';
+      final params = <String, String>{'comprado': '$bought'};
+      if (cursor != null) params['cursor'] = cursor;
+      final path = '/v1/itens?${Uri(queryParameters: params).query}';
       final response = await api.request('GET', path, houseId: houseId);
       final page = ItemPage.fromJson(response as Map<String, dynamic>);
       if (generation != _itemsGeneration || activeHouse?.id != houseId) return;
@@ -250,21 +323,25 @@ class AppState extends ChangeNotifier {
       if (cursor != null &&
           (page.nextCursor == cursor ||
               (page.nextCursor != null &&
-                  _usedCursors.contains(page.nextCursor)))) {
+                  usedCursors.contains(page.nextCursor)))) {
         throw const FormatException('A paginação retornou um cursor repetido.');
       }
-
-      final existingIds = firstPage
+      final existing = firstPage
           ? <int>{}
-          : items.map((item) => item.id).toSet();
+          : sectionItems.map((item) => item.id).toSet();
       final pageItems = page.items
-          .where((item) => existingIds.add(item.id))
+          .where((item) => existing.add(item.id))
           .toList(growable: false);
-      items = firstPage ? pageItems : [...items, ...pageItems];
-      if (cursor != null) _usedCursors.add(cursor);
-      nextItemsCursor = page.nextCursor;
-      hasMoreItems = page.hasMore;
-      itemsError = null;
+      if (bought) {
+        boughtItems = firstPage ? pageItems : [...boughtItems, ...pageItems];
+        nextBoughtItemsCursor = page.nextCursor;
+        hasMoreBoughtItems = page.hasMore;
+      } else {
+        items = firstPage ? pageItems : [...items, ...pageItems];
+        nextItemsCursor = page.nextCursor;
+        hasMoreItems = page.hasMore;
+      }
+      if (cursor != null) usedCursors.add(cursor);
     } catch (exception) {
       if (generation != _itemsGeneration || activeHouse?.id != houseId) return;
       if (exception is ApiException && exception.status == 401) {
@@ -275,15 +352,28 @@ class AppState extends ChangeNotifier {
         houses.removeWhere((house) => house.id == houseId);
         activeHouse = null;
         items = [];
+        boughtItems = [];
         hasMoreItems = false;
+        hasMoreBoughtItems = false;
         nextItemsCursor = null;
+        nextBoughtItemsCursor = null;
         houseError = _houseErrorMessage(exception);
       }
-      itemsError = _messageFor(exception);
+      final message = _messageFor(exception);
+      if (bought) {
+        boughtItemsError = message;
+      } else {
+        itemsError = message;
+      }
     } finally {
       if (generation == _itemsGeneration) {
-        itemsLoading = false;
-        itemsLoadingMore = false;
+        if (bought) {
+          boughtLoading = false;
+          boughtLoadingMore = false;
+        } else {
+          itemsLoading = false;
+          itemsLoadingMore = false;
+        }
         notifyListeners();
       }
     }
@@ -381,18 +471,26 @@ class AppState extends ChangeNotifier {
 
   void _replaceUpdatedItem(Item updated) {
     final uniqueItems = <int, Item>{updated.id: updated};
-    for (final current in items) {
-      uniqueItems.putIfAbsent(current.id, () => current);
+    for (final current in [...items, ...boughtItems]) {
+      if (current.id != updated.id) {
+        uniqueItems.putIfAbsent(current.id, () => current);
+      }
     }
-    final otherItems =
-        uniqueItems.values.where((current) => current.id != updated.id).toList()
-          ..sort((left, right) {
-            final timestampOrder = right.updatedAt.compareTo(left.updatedAt);
-            return timestampOrder != 0
-                ? timestampOrder
-                : right.id.compareTo(left.id);
-          });
-    items = [updated, ...otherItems];
+    final otherItems = uniqueItems.values.toList()
+      ..sort((left, right) {
+        final timestampOrder = right.updatedAt.compareTo(left.updatedAt);
+        return timestampOrder != 0
+            ? timestampOrder
+            : right.id.compareTo(left.id);
+      });
+    final retained = otherItems.where((item) => item.id != updated.id).toList();
+    if (updated.bought) {
+      boughtItems = [updated, ...retained.where((item) => item.bought)];
+      items = retained.where((item) => !item.bought).toList();
+    } else {
+      items = [updated, ...retained.where((item) => !item.bought)];
+      boughtItems = retained.where((item) => item.bought).toList();
+    }
     notifyListeners();
   }
 
@@ -401,6 +499,9 @@ class AppState extends ChangeNotifier {
     if (houseId == null) return;
     await api.request('DELETE', '/v1/itens/${item.id}', houseId: houseId);
     items = items
+        .where((current) => current.id != item.id)
+        .toList(growable: false);
+    boughtItems = boughtItems
         .where((current) => current.id != item.id)
         .toList(growable: false);
     notifyListeners();

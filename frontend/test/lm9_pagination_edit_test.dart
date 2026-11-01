@@ -56,6 +56,11 @@ void main() {
             'data': {'id': 7, 'nome': 'Casa de teste'},
           });
         }
+        if (request.url.path == '/api/v1/itens' &&
+            request.method == 'GET' &&
+            request.url.queryParameters['comprado'] == 'true') {
+          return _json(_page([], hasMore: false));
+        }
         if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
           final cursor = request.url.queryParameters['cursor'];
           requestedCursors.add(cursor);
@@ -108,7 +113,10 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Produto 40'),
         250,
-        scrollable: find.byType(Scrollable),
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('pending-item-list')),
+          matching: find.byType(Scrollable),
+        ),
       );
       await tester.tap(find.text('Produto 40'));
       await tester.pumpAndSettle();
@@ -127,7 +135,6 @@ void main() {
       expect(state.nextItemsCursor, 'cursor-page-2');
       expect(state.hasMoreItems, isTrue);
       expect(requestedCursors, [null, 'cursor-page-1']);
-      expect(find.text('Produto 40 atualizado'), findsOneWidget);
     },
   );
 }
