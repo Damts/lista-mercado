@@ -116,6 +116,75 @@ class ItemTest extends TestCase
             ->assertJsonPath('error_code', 'cursor_invalid');
     }
 
+    public function test_items_can_be_filtered_by_bought_status_without_changing_the_default_listing(): void
+    {
+        $token = $this->register('owner@example.com');
+        $houseId = $this->createHouse($token, 'Casa');
+        $pendingId = $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/itens', ['nome' => 'Arroz', 'quantidade' => 1])
+            ->assertCreated()
+            ->json('data.id');
+        $boughtId = $this->asHouse($token, $houseId)
+            ->postJson('/api/v1/itens', ['nome' => 'Leite', 'quantidade' => 1])
+            ->assertCreated()
+            ->json('data.id');
+        $this->asHouse($token, $houseId)
+            ->patchJson('/api/v1/itens/'.$boughtId, ['comprado' => true])
+            ->assertOk();
+
+        $default = $this->asHouse($token, $houseId)->getJson('/api/v1/itens')->assertOk();
+        $this->assertEqualsCanonicalizing([$pendingId, $boughtId], $default->json('data.*.id'));
+
+        $bought = $this->asHouse($token, $houseId)->getJson('/api/v1/itens?comprado=true')->assertOk();
+        $bought->assertJsonPath('data.0.id', $boughtId)
+            ->assertJsonPath('data.0.comprado', true)
+            ->assertJsonCount(1, 'data');
+
+        $pending = $this->asHouse($token, $houseId)->getJson('/api/v1/itens?comprado=false')->assertOk();
+        $pending->assertJsonPath('data.0.id', $pendingId)
+            ->assertJsonPath('data.0.comprado', false)
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_bought_status_filter_paginates_with_its_own_cursor(): void
+    {
+        $token = $this->register('owner@example.com');
+        $houseId = $this->createHouse($token, 'Casa');
+
+        for ($i = 1; $i <= 25; $i++) {
+            $itemId = $this->asHouse($token, $houseId)
+                ->postJson('/api/v1/itens', ['nome' => "Comprado {$i}", 'quantidade' => 1])
+                ->assertCreated()
+                ->json('data.id');
+            $this->asHouse($token, $houseId)
+                ->patchJson('/api/v1/itens/'.$itemId, ['comprado' => true])
+                ->assertOk();
+        }
+        $this->asHouse($token, $houseId)->postJson('/api/v1/itens', ['nome' => 'Pendente 1', 'quantidade' => 1])->assertCreated();
+        $this->asHouse($token, $houseId)->postJson('/api/v1/itens', ['nome' => 'Pendente 2', 'quantidade' => 1])->assertCreated();
+
+        $first = $this->asHouse($token, $houseId)->getJson('/api/v1/itens?comprado=true')->assertOk();
+        $first->assertJsonCount(20, 'data')->assertJsonPath('meta.has_more', true);
+        $firstIds = $first->json('data.*.id');
+        $second = $this->asHouse($token, $houseId)->getJson('/api/v1/itens?comprado=true&cursor='.urlencode($first->json('meta.next_cursor')))->assertOk();
+        $second->assertJsonCount(5, 'data')->assertJsonPath('meta.has_more', false)->assertJsonPath('meta.next_cursor', null);
+        $this->assertCount(0, array_intersect($firstIds, $second->json('data.*.id')));
+    }
+
+    public function test_bought_status_filter_rejects_values_outside_true_or_false(): void
+    {
+        $token = $this->register('owner@example.com');
+        $houseId = $this->createHouse($token, 'Casa');
+
+        foreach (['1', 'True', '', 'yes'] as $value) {
+            $this->asHouse($token, $houseId)
+                ->getJson('/api/v1/itens?comprado='.urlencode($value))
+                ->assertBadRequest()
+                ->assertJsonPath('type', 'bad_request')
+                ->assertJsonPath('error_code', 'bought_filter_invalid');
+        }
+    }
+
     public function test_patch_updates_all_fields_and_normalizes_measure(): void
     {
         $token = $this->register('owner@example.com');

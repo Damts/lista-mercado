@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\InvalidBoughtFilterException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreItemRequest;
 use App\Http\Requests\UpdateItemRequest;
@@ -24,9 +25,11 @@ class ItemController extends Controller
     {
         $casa = $this->context($request);
         $cursor = $this->decodeCursor($request->query('cursor'));
+        $comprado = $this->boughtFilter($request);
 
         $query = Item::query()
             ->where('casa_id', $casa->id)
+            ->when($comprado !== null, fn ($query) => $query->where('comprado', $comprado))
             ->orderByDesc('updated_at')
             ->orderByDesc('id');
 
@@ -202,6 +205,19 @@ class ItemController extends Controller
         }
 
         return ['updated_at' => $updatedAt, 'id' => $payload['id']];
+    }
+
+    private function boughtFilter(Request $request): ?bool
+    {
+        if (! $request->query->has('comprado')) {
+            return null;
+        }
+
+        return match ($request->query('comprado')) {
+            'true' => true,
+            'false' => false,
+            default => throw new InvalidBoughtFilterException(),
+        };
     }
 
     private function normalize(string $name): string
