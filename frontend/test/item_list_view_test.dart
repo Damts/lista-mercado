@@ -323,4 +323,37 @@ void main() {
     expect(state.items.single.bought, isFalse);
     expect(state.items, hasLength(1));
   });
+
+  test('requisições concorrentes não repetem a mesma página', () async {
+    final pageTwo = Completer<http.Response>();
+    var cursorRequests = 0;
+    final client = MockClient((request) async {
+      final common = _commonResponse(request);
+      if (common != null) return common;
+      if (request.url.queryParameters.isEmpty) {
+        return _json(
+          _page(
+            List.generate(20, (index) => _item(index + 1)),
+            hasMore: true,
+            nextCursor: 'opaque-cursor-1',
+          ),
+        );
+      }
+      cursorRequests++;
+      return pageTwo.future;
+    });
+    final state = await _state(client);
+    await state.selectHouse(House(id: 7, name: 'Casa de teste'));
+
+    final firstRequest = state.loadNextItems();
+    final duplicateRequest = state.loadNextItems();
+    await Future<void>.delayed(Duration.zero);
+    expect(cursorRequests, 1);
+    expect(state.itemsLoadingMore, isTrue);
+
+    pageTwo.complete(_json(_page([_item(21)], hasMore: false)));
+    await Future.wait([firstRequest, duplicateRequest]);
+    expect(state.items, hasLength(21));
+    expect(cursorRequests, 1);
+  });
 }
