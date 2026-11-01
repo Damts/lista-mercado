@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../state.dart';
+import '../models/monthly_list.dart';
 import '../widgets/add_item_dialog.dart';
 import '../widgets/item_list_view.dart';
 
@@ -36,7 +37,84 @@ class ListPage extends StatelessWidget {
         onBack: () => context.go('/casas'),
       );
     }
-    return const ItemListView();
+    if (state.listsLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          semanticsLabel: 'Carregando listas mensais',
+        ),
+      );
+    }
+    if (state.listsError != null) {
+      return _HouseErrorState(
+        message: state.listsError!,
+        onRetry: state.loadMonthlyLists,
+        onBack: () => context.go('/casas'),
+      );
+    }
+    if (state.activeList == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.calendar_month_outlined, size: 40),
+              const SizedBox(height: 12),
+              const Text('Nenhuma lista mensal disponível.'),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: state.loadMonthlyLists,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tentar novamente'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: DropdownButtonFormField<MonthlyList>(
+            key: ValueKey(state.activeList!.id),
+            initialValue: state.activeList,
+            decoration: const InputDecoration(labelText: 'Lista do mês'),
+            items: state.monthlyLists
+                .map(
+                  (list) => DropdownMenuItem(
+                    value: list,
+                    child: Text(
+                      '${list.label}${list.isClosed ? ' · Fechado' : ''}',
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: state.itemsLoading
+                ? null
+                : (list) {
+                    if (list != null) state.selectMonthlyList(list);
+                  },
+          ),
+        ),
+        if (state.activeList!.isClosed)
+          Material(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(Icons.lock_outline, semanticLabel: 'Lista fechada'),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('Mês fechado · somente leitura')),
+                ],
+              ),
+            ),
+          ),
+        Expanded(child: ItemListView()),
+      ],
+    );
   }
 
   @override
@@ -61,7 +139,12 @@ class ListPage extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Adicionar item',
-            onPressed: house == null ? null : () => _addItem(context, state),
+            onPressed:
+                house == null ||
+                    state.activeList == null ||
+                    state.activeList!.isClosed
+                ? null
+                : () => _addItem(context, state),
             icon: const Icon(Icons.add),
           ),
         ],

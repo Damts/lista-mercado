@@ -49,6 +49,19 @@ void main() {
     'casa usa nome do contrato e cards mostram nome, quantidade e preço',
     (tester) async {
       final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/casas/12/listas') {
+          return _json({
+            'data': [
+              {
+                'id': 120,
+                'casa_id': 12,
+                'ano': 2026,
+                'mes': 11,
+                'fechado_em': null,
+              },
+            ],
+          });
+        }
         if (request.url.path == '/api/v1/casas/12') {
           expect(request.method, 'GET');
           expect(request.headers['authorization'], 'Bearer test-token');
@@ -57,11 +70,7 @@ void main() {
             'data': {'id': 12, 'nome': 'Casa do contrato'},
           });
         }
-        if (request.url.path == '/api/v1/itens' &&
-            request.url.queryParameters['comprado'] == 'true') {
-          return _json(_page([]));
-        }
-        if (request.url.path == '/api/v1/itens') {
+        if (request.url.path == '/api/v1/listas/120/itens') {
           return _json(
             _page([
               _item(id: 1, name: 'Arroz', quantity: 2, price: '0.10'),
@@ -91,10 +100,6 @@ void main() {
       await tester.scrollUntilVisible(
         find.textContaining('1 un · Preço não informado'),
         200,
-        scrollable: find.descendant(
-          of: find.byKey(const ValueKey('pending-item-list')),
-          matching: find.byType(Scrollable),
-        ),
       );
       expect(find.textContaining('1 un · Preço não informado'), findsOneWidget);
       expect(find.byTooltip('Adicionar item'), findsOneWidget);
@@ -113,6 +118,19 @@ void main() {
     String? houseHeader;
     var itemReads = 0;
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/12/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 120,
+              'casa_id': 12,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/12') {
         return _json({
           'data': {'id': 12, 'nome': 'Casa'},
@@ -125,7 +143,8 @@ void main() {
           'data': _item(id: 9, name: 'Feijão', quantity: 3),
         }, status: 201);
       }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/120/itens' &&
+          request.method == 'GET') {
         itemReads++;
         final items = itemReads == 1
             ? <Map<String, dynamic>>[]
@@ -182,14 +201,23 @@ void main() {
   ) async {
     final houseResponse = Completer<http.Response>();
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/12/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 120,
+              'casa_id': 12,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/12') {
         return houseResponse.future;
       }
-      if (request.url.path == '/api/v1/itens' &&
-          request.url.queryParameters['comprado'] == 'true') {
-        return _json(_page([]));
-      }
-      if (request.url.path == '/api/v1/itens') {
+      if (request.url.path == '/api/v1/listas/120/itens') {
         return _json(_page([]));
       }
       return _json({'message': 'Não encontrado'}, status: 404);
@@ -229,7 +257,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Casa carregada'), findsOneWidget);
-    expect(find.text('Nenhum item pendente'), findsOneWidget);
+    expect(find.text('Sua lista está vazia'), findsOneWidget);
   });
 
   testWidgets('404 de casa mostra erro e retry refaz GET /casas/{id}', (
@@ -238,6 +266,19 @@ void main() {
     var houseRequests = 0;
     var itemRequests = 0;
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/12/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 120,
+              'casa_id': 12,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/12') {
         houseRequests++;
         expect(request.method, 'GET');
@@ -258,11 +299,7 @@ void main() {
           },
         });
       }
-      if (request.url.path == '/api/v1/itens' &&
-          request.url.queryParameters['comprado'] == 'true') {
-        return _json(_page([]));
-      }
-      if (request.url.path == '/api/v1/itens') {
+      if (request.url.path == '/api/v1/listas/120/itens') {
         itemRequests++;
         expect(request.headers['x-casa-id'], '12');
         return _json(
@@ -308,6 +345,19 @@ void main() {
   ) async {
     var itemRequests = 0;
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/12/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 120,
+              'casa_id': 12,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/12') {
         return _json({
           'data': {
@@ -317,11 +367,7 @@ void main() {
           },
         });
       }
-      if (request.url.path == '/api/v1/itens' &&
-          request.url.queryParameters['comprado'] == 'true') {
-        return _json(_page([]));
-      }
-      if (request.url.path == '/api/v1/itens') {
+      if (request.url.path == '/api/v1/listas/120/itens') {
         itemRequests++;
         if (itemRequests == 1) {
           return _json({'message': 'Falha temporária'}, status: 503);
@@ -351,6 +397,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(itemRequests, 2);
-    expect(find.text('Nenhum item pendente'), findsOneWidget);
+    expect(find.text('Sua lista está vazia'), findsOneWidget);
   });
 }

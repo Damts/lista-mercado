@@ -22,6 +22,19 @@ void main() {
     tester,
   ) async {
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {
@@ -31,14 +44,7 @@ void main() {
           },
         });
       }
-      if (request.url.path == '/api/v1/itens' &&
-          request.url.queryParameters['comprado'] == 'true') {
-        return _json({
-          'data': [],
-          'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
-        });
-      }
-      if (request.url.path == '/api/v1/itens') {
+      if (request.url.path == '/api/v1/listas/70/itens') {
         return _json({
           'data': [],
           'meta': {'per_page': 20, 'has_more': false, 'next_cursor': null},
@@ -71,6 +77,6 @@ void main() {
 
     expect(state.activeHouse?.name, 'Casa carregada pela API');
     expect(find.text('Casa carregada pela API'), findsOneWidget);
-    expect(find.text('Nenhum item pendente'), findsOneWidget);
+    expect(find.text('Sua lista está vazia'), findsOneWidget);
   });
 }

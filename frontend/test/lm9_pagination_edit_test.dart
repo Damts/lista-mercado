@@ -51,17 +51,26 @@ void main() {
       final requestedCursors = <String?>[];
       Map<String, dynamic>? patchBody;
       final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/casas/7/listas') {
+          return _json({
+            'data': [
+              {
+                'id': 70,
+                'casa_id': 7,
+                'ano': 2026,
+                'mes': 11,
+                'fechado_em': null,
+              },
+            ],
+          });
+        }
         if (request.url.path == '/api/v1/casas/7') {
           return _json({
             'data': {'id': 7, 'nome': 'Casa de teste'},
           });
         }
-        if (request.url.path == '/api/v1/itens' &&
-            request.method == 'GET' &&
-            request.url.queryParameters['comprado'] == 'true') {
-          return _json(_page([], hasMore: false));
-        }
-        if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+        if (request.url.path == '/api/v1/listas/70/itens' &&
+            request.method == 'GET') {
           final cursor = request.url.queryParameters['cursor'];
           requestedCursors.add(cursor);
           if (cursor == null) {
@@ -113,11 +122,10 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Produto 40'),
         250,
-        scrollable: find.descendant(
-          of: find.byKey(const ValueKey('pending-item-list')),
-          matching: find.byType(Scrollable),
-        ),
+        scrollable: find.byType(Scrollable),
       );
+      await tester.ensureVisible(find.text('Produto 40'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Produto 40'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -135,6 +143,7 @@ void main() {
       expect(state.nextItemsCursor, 'cursor-page-2');
       expect(state.hasMoreItems, isTrue);
       expect(requestedCursors, [null, 'cursor-page-1']);
+      expect(find.text('Produto 40 atualizado'), findsOneWidget);
     },
   );
 }

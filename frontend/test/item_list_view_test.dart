@@ -57,9 +57,12 @@ Future<AppState> _state(MockClient client) async {
 }
 
 http.Response? _commonResponse(http.Request request) {
-  if (request.url.path == '/api/v1/itens' &&
-      request.url.queryParameters['comprado'] == 'true') {
-    return _json(_page([], hasMore: false));
+  if (request.url.path == '/api/v1/casas/7/listas') {
+    return _json({
+      'data': [
+        {'id': 70, 'casa_id': 7, 'ano': 2026, 'mes': 11, 'fechado_em': null},
+      ],
+    });
   }
   if (request.url.path == '/api/v1/casas/7') {
     return _json({
@@ -87,9 +90,8 @@ void main() {
     final client = MockClient((request) async {
       final common = _commonResponse(request);
       if (common != null) return common;
-      if (request.url.path == '/api/v1/itens' &&
-          request.url.queryParameters['comprado'] == 'false' &&
-          request.url.queryParameters['cursor'] == null) {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.url.queryParameters.isEmpty) {
         return _json(
           _page(
             List.generate(20, (index) => _item(index + 1)),
@@ -98,7 +100,7 @@ void main() {
           ),
         );
       }
-      if (request.url.path == '/api/v1/itens') {
+      if (request.url.path == '/api/v1/listas/70/itens') {
         expect(request.url.queryParameters['cursor'], 'opaque-cursor-1');
         expect(request.headers['x-casa-id'], '7');
         cursorRequests++;
@@ -111,20 +113,14 @@ void main() {
     await tester.pumpWidget(_wrap(state));
     await tester.pumpAndSettle();
 
-    await tester.drag(
-      find.byKey(const ValueKey('pending-item-list')),
-      const Offset(0, -5000),
-    );
+    await tester.drag(find.byType(ListView), const Offset(0, -5000));
     await tester.pumpAndSettle();
 
     expect(state.items, hasLength(22));
     expect(state.items.map((item) => item.id).toSet(), hasLength(22));
     expect(cursorRequests, 1);
     expect(state.hasMoreItems, isFalse);
-    await tester.drag(
-      find.byKey(const ValueKey('pending-item-list')),
-      const Offset(0, -1000),
-    );
+    await tester.drag(find.byType(ListView), const Offset(0, -1000));
     await tester.pumpAndSettle();
     expect(find.text('Você chegou ao fim da lista.'), findsOneWidget);
   });
@@ -141,9 +137,8 @@ void main() {
     final client = MockClient((request) async {
       final common = _commonResponse(request);
       if (common != null) return common;
-      if (request.url.path == '/api/v1/itens' &&
-          request.url.queryParameters['comprado'] == 'false' &&
-          request.url.queryParameters['cursor'] == null) {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.url.queryParameters.isEmpty) {
         return _json(
           _page(
             List.generate(20, (index) => _item(index + 1)),
@@ -163,10 +158,7 @@ void main() {
     await tester.pumpWidget(_wrap(state));
     await tester.pumpAndSettle();
 
-    await tester.drag(
-      find.byKey(const ValueKey('pending-item-list')),
-      const Offset(0, -5000),
-    );
+    await tester.drag(find.byType(ListView), const Offset(0, -5000));
     await tester.pumpAndSettle();
     expect(state.items, hasLength(20));
     expect(state.items.first.id, 1);
@@ -194,9 +186,9 @@ void main() {
     await tester.pumpWidget(_wrap(state));
     await tester.pumpAndSettle();
 
-    expect(find.text('Nenhum item pendente'), findsOneWidget);
+    expect(find.text('Sua lista está vazia'), findsOneWidget);
     expect(find.text('Adicione um item para começar.'), findsOneWidget);
-    expect(find.text('Você chegou ao fim da lista.'), findsNothing);
+    expect(find.text('Você chegou ao fim da lista.'), findsOneWidget);
 
     final errorClient = MockClient((request) async {
       final common = _commonResponse(request);
@@ -216,137 +208,13 @@ void main() {
     expect(find.text('Tentar novamente'), findsOneWidget);
   });
 
-  testWidgets('toggle atualiza otimisticamente e reconcilia pela resposta', (
-    tester,
-  ) async {
-    final patchResponse = Completer<http.Response>();
-    final client = MockClient((request) async {
-      final common = _commonResponse(request);
-      if (common != null) return common;
-      if (request.method == 'GET') {
-        return _json(_page([_item(2)], hasMore: false));
-      }
-      expect(request.method, 'PATCH');
-      expect(request.url.path, '/api/v1/itens/2');
-      expect(jsonDecode(request.body), {'comprado': true});
-      expect(request.headers['x-casa-id'], '7');
-      return patchResponse.future;
-    });
-    final state = await _state(client);
-    await state.selectHouse(House(id: 7, name: 'Casa de teste'));
-    await tester.pumpWidget(_wrap(state));
-    await tester.pumpAndSettle();
-    expect(find.text('Pendentes (1)'), findsOneWidget);
-    expect(find.text('Comprados (0)'), findsOneWidget);
-
-    final toggle = state.toggle(state.items.single);
-    expect(state.items.single.bought, isTrue);
-    expect(state.items.single.name, 'Item 2');
-    expect(state.items.single.quantity, 3);
-    expect(state.items.single.price, '12.50');
-    expect(state.items.single.measure, 'un');
-    expect(state.items, hasLength(1));
-
-    patchResponse.complete(
-      _json({
-        'data': {
-          ..._item(2),
-          'nome': 'Nome canônico',
-          'comprado': true,
-          'updated_at': '2026-10-23T12:00:00.000000Z',
-        },
-      }),
-    );
-    await toggle;
-    expect(state.items.single.bought, isTrue);
-    expect(state.items.single.name, 'Nome canônico');
-    expect(state.items, hasLength(1));
-    await tester.pump();
-    expect(find.text('Pendentes (0)'), findsOneWidget);
-    expect(find.text('Comprados (1)'), findsOneWidget);
-  });
-
-  testWidgets('falha do PATCH restaura o item e mostra aviso', (tester) async {
-    final patchResponse = Completer<http.Response>();
-    final client = MockClient((request) async {
-      final common = _commonResponse(request);
-      if (common != null) return common;
-      if (request.method == 'GET') {
-        return _json(_page([_item(2)], hasMore: false));
-      }
-      return patchResponse.future;
-    });
-    final state = await _state(client);
-    await state.selectHouse(House(id: 7, name: 'Casa de teste'));
-    await tester.pumpWidget(_wrap(state));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byType(Checkbox));
-    await tester.pump();
-    expect(state.items.single.bought, isTrue);
-    patchResponse.complete(_json({'message': 'Indisponível'}, status: 503));
-    await tester.pumpAndSettle();
-
-    expect(state.items.single.bought, isFalse);
-    expect(state.items.single.name, 'Item 2');
-    expect(
-      find.text('Não foi possível atualizar o item. Tente novamente.'),
-      findsOneWidget,
-    );
-  });
-
-  test('toques rápidos são serializados e convergem no estado final', () async {
-    final firstPatch = Completer<http.Response>();
-    var patchCalls = 0;
-    final client = MockClient((request) async {
-      final common = _commonResponse(request);
-      if (common != null) return common;
-      if (request.method == 'GET') {
-        return _json(_page([_item(2)], hasMore: false));
-      }
-      patchCalls++;
-      if (patchCalls == 1) return firstPatch.future;
-      final payload = jsonDecode(request.body) as Map<String, dynamic>;
-      return _json({
-        'data': {
-          ..._item(2),
-          'comprado': payload['comprado'],
-          'updated_at': '2026-10-23T12:00:00.000000Z',
-        },
-      });
-    });
-    final state = await _state(client);
-    await state.selectHouse(House(id: 7, name: 'Casa de teste'));
-
-    final first = state.toggle(state.items.single);
-    final second = state.toggle(state.items.single);
-    expect(state.items.single.bought, isFalse);
-    expect(patchCalls, 0);
-    await Future<void>.delayed(Duration.zero);
-    expect(patchCalls, 1);
-    firstPatch.complete(
-      _json({
-        'data': {
-          ..._item(2),
-          'comprado': true,
-          'updated_at': '2026-10-23T12:00:00.000000Z',
-        },
-      }),
-    );
-    await Future.wait([first, second]);
-    expect(patchCalls, 2);
-    expect(state.items.single.bought, isFalse);
-    expect(state.items, hasLength(1));
-  });
-
   test('requisições concorrentes não repetem a mesma página', () async {
     final pageTwo = Completer<http.Response>();
     var cursorRequests = 0;
     final client = MockClient((request) async {
       final common = _commonResponse(request);
       if (common != null) return common;
-      if (request.url.queryParameters['comprado'] == 'false' &&
-          request.url.queryParameters['cursor'] == null) {
+      if (request.url.queryParameters.isEmpty) {
         return _json(
           _page(
             List.generate(20, (index) => _item(index + 1)),

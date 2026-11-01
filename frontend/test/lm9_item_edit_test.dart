@@ -59,18 +59,26 @@ Future<AppState> _state(MockClient client) async {
   );
 }
 
-MockClient _client(List<Map<String, dynamic>> items) =>
-    MockClient((request) async {
-      if (request.url.path == '/api/v1/casas/7') {
-        return _json({
-          'data': {'id': 7, 'nome': 'Casa de teste'},
-        });
-      }
-      if (request.url.path == '/api/v1/itens') {
-        return _json(_page(items));
-      }
-      return _json({'message': 'Não encontrado'}, status: 404);
+MockClient _client(List<Map<String, dynamic>> items) => MockClient((
+  request,
+) async {
+  if (request.url.path == '/api/v1/casas/7/listas') {
+    return _json({
+      'data': [
+        {'id': 70, 'casa_id': 7, 'ano': 2026, 'mes': 11, 'fechado_em': null},
+      ],
     });
+  }
+  if (request.url.path == '/api/v1/casas/7') {
+    return _json({
+      'data': {'id': 7, 'nome': 'Casa de teste'},
+    });
+  }
+  if (request.url.path == '/api/v1/listas/70/itens') {
+    return _json(_page(items));
+  }
+  return _json({'message': 'Não encontrado'}, status: 404);
+});
 
 void main() {
   testWidgets('card mostra quantidade junto da medida do item', (tester) async {
@@ -157,17 +165,26 @@ void main() {
       updatedAt: '2026-10-27T12:02:00.000000Z',
     );
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
-      if (request.url.path == '/api/v1/itens' &&
-          request.method == 'GET' &&
-          request.url.queryParameters['comprado'] == 'true') {
-        return _json(_page([]));
-      }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.method == 'GET') {
         return _json(_page(initialItems));
       }
       if (request.url.path == '/api/v1/itens/2' && request.method == 'PATCH') {
@@ -246,15 +263,13 @@ void main() {
     });
     expect(houseIdHeader, '7');
     expect(find.text('Item atualizado.'), findsOneWidget);
-    expect(state.items.map((item) => item.id).toList(), [3]);
-    expect(state.boughtItems.map((item) => item.id).toList(), [2]);
-    expect(state.boughtItems.single.name, 'Azeite extra');
-    expect(state.boughtItems.single.quantity, 500);
-    expect(state.boughtItems.single.measure, 'ml');
-    expect(state.boughtItems.single.price, '0.10');
-    expect(state.boughtItems.single.bought, isTrue);
-    await tester.tap(find.text('Comprados (1)'));
-    await tester.pumpAndSettle();
+    expect(state.items.map((item) => item.id).toList(), [2, 3]);
+    expect(state.items.where((item) => item.id == 2), hasLength(1));
+    expect(state.items.first.name, 'Azeite extra');
+    expect(state.items.first.quantity, 500);
+    expect(state.items.first.measure, 'ml');
+    expect(state.items.first.price, '0.10');
+    expect(state.items.first.bought, isTrue);
     expect(find.textContaining('500 ml'), findsOneWidget);
   });
 
@@ -271,17 +286,26 @@ void main() {
       updatedAt: '2026-10-27T12:01:00.000000Z',
     );
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
-      if (request.url.path == '/api/v1/itens' &&
-          request.method == 'GET' &&
-          request.url.queryParameters['comprado'] == 'true') {
-        return _json(_page([]));
-      }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.method == 'GET') {
         return _json(_page([original]));
       }
       if (request.url.path == '/api/v1/itens/1' && request.method == 'PATCH') {
@@ -324,17 +348,26 @@ void main() {
       updatedAt: '2026-10-27T12:01:00.000000Z',
     );
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
-      if (request.url.path == '/api/v1/itens' &&
-          request.method == 'GET' &&
-          request.url.queryParameters['comprado'] == 'true') {
-        return _json(_page([]));
-      }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.method == 'GET') {
         return _json(_page([original]));
       }
       if (request.method == 'PATCH') patchRequests++;
@@ -374,17 +407,26 @@ void main() {
         updatedAt: '2026-10-27T12:01:00.000000Z',
       );
       final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/casas/7/listas') {
+          return _json({
+            'data': [
+              {
+                'id': 70,
+                'casa_id': 7,
+                'ano': 2026,
+                'mes': 11,
+                'fechado_em': null,
+              },
+            ],
+          });
+        }
         if (request.url.path == '/api/v1/casas/7') {
           return _json({
             'data': {'id': 7, 'nome': 'Casa de teste'},
           });
         }
-        if (request.url.path == '/api/v1/itens' &&
-            request.method == 'GET' &&
-            request.url.queryParameters['comprado'] == 'true') {
-          return _json(_page([]));
-        }
-        if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+        if (request.url.path == '/api/v1/listas/70/itens' &&
+            request.method == 'GET') {
           return _json(_page([first, second]));
         }
         if (request.url.path == '/api/v1/itens/2' &&
@@ -409,9 +451,9 @@ void main() {
       await state.toggle(state.items.last);
 
       expect(patchBody, {'comprado': true});
-      expect(state.items.map((item) => item.id).toList(), [1]);
-      expect(state.boughtItems.map((item) => item.id).toList(), [2]);
-      expect(state.boughtItems.single.bought, isTrue);
+      expect(state.items.map((item) => item.id).toList(), [2, 1]);
+      expect(state.items.where((item) => item.id == 2), hasLength(1));
+      expect(state.items.first.bought, isTrue);
     },
   );
 
@@ -426,17 +468,26 @@ void main() {
       updatedAt: '2026-10-27T12:01:00.000000Z',
     );
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
-      if (request.url.path == '/api/v1/itens' &&
-          request.method == 'GET' &&
-          request.url.queryParameters['comprado'] == 'true') {
-        return _json(_page([]));
-      }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.method == 'GET') {
         return _json(_page([original]));
       }
       if (request.url.path == '/api/v1/itens/4' && request.method == 'PATCH') {
@@ -480,17 +531,26 @@ void main() {
       updatedAt: '2026-10-27T12:01:00.000000Z',
     );
     final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/casas/7/listas') {
+        return _json({
+          'data': [
+            {
+              'id': 70,
+              'casa_id': 7,
+              'ano': 2026,
+              'mes': 11,
+              'fechado_em': null,
+            },
+          ],
+        });
+      }
       if (request.url.path == '/api/v1/casas/7') {
         return _json({
           'data': {'id': 7, 'nome': 'Casa de teste'},
         });
       }
-      if (request.url.path == '/api/v1/itens' &&
-          request.method == 'GET' &&
-          request.url.queryParameters['comprado'] == 'true') {
-        return _json(_page([]));
-      }
-      if (request.url.path == '/api/v1/itens' && request.method == 'GET') {
+      if (request.url.path == '/api/v1/listas/70/itens' &&
+          request.method == 'GET') {
         return _json(_page([original]));
       }
       if (request.url.path == '/api/v1/itens/5' && request.method == 'PATCH') {
