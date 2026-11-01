@@ -36,6 +36,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('casas/{casa}/listas', [ListaController::class, 'index'])->middleware('casa.context');
         Route::post('casas/{casa}/listas', [ListaController::class, 'store'])->middleware('casa.context');
         Route::get('listas/{lista}/itens', [ListaController::class, 'itens'])->middleware('casa.context');
+        Route::post('listas/{destino}/copiar-de/{origem}', [ListaController::class, 'copy'])->middleware('casa.context');
         Route::post('casas', [CasaController::class, 'store']);
         Route::get('casas/{casa}', [CasaController::class, 'show']);
         Route::post('casas/{casa}/convites', [ConviteController::class, 'store']);
