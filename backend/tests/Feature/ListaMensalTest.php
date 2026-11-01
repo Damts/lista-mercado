@@ -147,6 +147,28 @@ class ListaMensalTest extends TestCase
         $this->travelBack();
     }
 
+    public function test_backfill_respects_sao_paulo_timezone_boundary(): void
+    {
+        // Item criado 31/10 23:00 UTC = 31/10 20:00 SP -> outubro
+        $octDate = CarbonImmutable::parse('2026-10-31 23:00:00', 'UTC')->setTimezone('America/Sao_Paulo');
+        $this->assertSame(10, $octDate->month);
+        $this->assertSame(2026, $octDate->year);
+
+        // Item criado 01/11 00:00 UTC = 31/10 21:00 SP -> outubro (ainda outubro em SP)
+        $stillOct = CarbonImmutable::parse('2026-11-01 00:00:00', 'UTC')->setTimezone('America/Sao_Paulo');
+        $this->assertSame(10, $stillOct->month);
+
+        // Item criado 01/11 02:59 UTC = 31/10 23:59 SP -> outubro (fronteira)
+        $boundary = CarbonImmutable::parse('2026-11-01 02:59:00', 'UTC')->setTimezone('America/Sao_Paulo');
+        $this->assertSame(10, $boundary->month);
+        $this->assertSame(31, $boundary->day);
+
+        // Item criado 01/11 04:00 UTC = 01/11 01:00 SP -> novembro
+        $novDate = CarbonImmutable::parse('2026-11-01 04:00:00', 'UTC')->setTimezone('America/Sao_Paulo');
+        $this->assertSame(11, $novDate->month);
+        $this->assertSame(2026, $novDate->year);
+    }
+
     private function asHouse(string $token, int $houseId): self
     {
         return $this->withToken($token)->withHeader('X-Casa-ID', (string) $houseId);
