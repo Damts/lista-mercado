@@ -184,7 +184,9 @@ public function test_items_can_be_filtered_by_bought_status_without_changing_the
                 ->assertJsonPath('error_code', 'bought_filter_invalid');
         }
 
-public function test_repeated_identical_bought_toggle_is_idempotent_and_preserves_item_data(): void
+    }
+
+    public function test_repeated_identical_bought_toggle_is_idempotent_and_preserves_item_data(): void
     {
         $token = $this->register('owner@example.com');
         $houseId = $this->createHouse($token, 'Casa');
