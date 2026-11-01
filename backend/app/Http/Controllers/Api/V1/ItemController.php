@@ -22,13 +22,14 @@ class ItemController extends Controller
 {
     private const PAGE_SIZE = 20;
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, ListaMensalService $listas): JsonResponse
     {
         $casa = $this->context($request);
+        $lista = $listas->current($casa);
         $cursor = $this->decodeCursor($request->query('cursor'));
 
         $query = Item::query()
-            ->where('casa_id', $casa->id)
+            ->where('lista_id', $lista->id)
             ->orderByDesc('updated_at')
             ->orderByDesc('id');
 
